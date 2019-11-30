@@ -80,6 +80,7 @@ def get_ifft(Nx,Ny,s_in,G):
     for i in range(nG):
         x = G[i,0]
         y = G[i,1]
+        #if x>-Nx/2 and x<Nx/2 and y>-Ny/2 and y<Ny/2
         s0[x,y] = s_in[i]
 
     s_out = np.fft.ifft2(s0)/dN
