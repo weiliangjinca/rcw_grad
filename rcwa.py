@@ -81,7 +81,7 @@ class RCWA_obj:
         self.FourierLayer_params = []        
         
     def Add_LayerUniform(self,thickness,epsilon):
-        assert type(thickness) == float, 'thickness should be a float'
+        #assert type(thickness) == float, 'thickness should be a float'
 
         self.id_list.append([0,self.Layer_N,self.Uniform_N])
         self.Uniform_ep_list.append(epsilon)
