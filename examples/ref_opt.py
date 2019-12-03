@@ -26,8 +26,8 @@ v = np.linspace(0,vf,N)
 freq_list = np.sqrt((c0-v)/(c0+v))
 gamma = 1./np.sqrt(1-(v/c0)**2)
 
-Nx = 100
-Ny = 100
+Nx = 50
+Ny = 50
 
 nG = 51
 # lattice vector
