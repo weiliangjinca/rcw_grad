@@ -1,20 +1,18 @@
-import os
+import os,sys
 os.environ["OPENBLAS_NUM_THREADS"] = "1" # for hera
+sys.path.append('/home/wljin/MyLocal/RCWA/')
+
 import autograd.numpy as np
 from autograd import grad
 import nlopt, time, numpy as npf
 from mpi4py import MPI
-comm = MPI.COMM_WORLD
-size = comm.Get_size()
-rank = comm.Get_rank()
-
-import sys
-sys.path.append('/home/wljin/MyLocal/RCWA/')
-
 import use_autograd
 use_autograd.use = 1
 import rcwa
-from utils import test_grad
+
+comm = MPI.COMM_WORLD
+size = comm.Get_size()
+rank = comm.Get_rank()
 
 t = 59e-9
 Period = 1.24e-6
