@@ -35,7 +35,7 @@ gamma = 1./np.sqrt(1-(v/c0)**2)
 Nx = 50
 Ny = 50
 
-nG = 201
+nG = 101
 # lattice vector
 Lx = Period/lam0
 Ly = Period/lam0
@@ -85,6 +85,8 @@ def fun_freq(dof,ind,Qabs):
 
 
 def fun_mpi(dof,Qabs):
+    dof = comm.bcast(dof)
+
     Nloop = int(np.ceil(1.0*N/size)) # number of calculations for each node
     Dl=[]
     gl=[]
@@ -109,43 +111,38 @@ def fun_mpi(dof,Qabs):
     if rank == 0:
         Dl = npf.concatenate(npf.array(Dl))
         gl = npf.concatenate(npf.array(gl))
-        sindex = Dl[:,0].argsort()
+        # sindex = Dl[:,0].argsort()
 
-        Dl = Dl[sindex,1]
-        gl = gl[sindex,1]
+        # Dl = Dl[sindex,1]
+        # gl = gl[sindex,1]
 
-        D = np.sum(Dl)
-        gradn = np.sum(gl)
+        D = np.sum(Dl[:,1])
+        gradn = np.sum(gl[:,1])
 
     D = comm.bcast(D)
     gradn = comm.bcast(gradn)
     return D,gradn
 
-dof = np.ones(Nx*Ny)
-dof = comm.bcast(dof)
+Qabs = 20.
+def fun_nlopt(dof,gradn):
+    D,gn = fun_mpi(dof,Qabs)
+    gradn[:] = gn
 
-D,grad = fun_mpi(dof,np.inf)
-if comm.rank == 0:
-    print D
+    if 'autograd' not in str(type(D)) and rank == 0:
+        print D
+    return D
 
-# Qabs = np.inf
-# def fun_nlopt(dof,gradn):
-#     global Qabs
-#     D,gn = fun_mpi(dof,Qabs)
-#     gradn[:] = gn
-#     return D
+ndof = Nx*Ny
+lb=np.zeros(ndof,dtype=float)
+ub=np.ones(ndof,dtype=float)
 
-# ndof = Nx*Ny
-# lb=np.zeros(ndof,dtype=float)
-# ub=np.ones(ndof,dtype=float)
+opt = nlopt.opt(nlopt.LD_MMA, ndof)
+opt.set_lower_bounds(lb)
+opt.set_upper_bounds(ub)
 
-# opt = nlopt.opt(nlopt.LD_MMA, ndof)
-# opt.set_lower_bounds(lb)
-# opt.set_upper_bounds(ub)
+opt.set_xtol_rel(1e-5)
+opt.set_maxeval(100)
 
-# opt.set_xtol_rel(1e-5)
-# opt.set_maxeval(100)
-
-# opt.set_min_objective(fun_nlopt)
-# x = opt.optimize(np.random.random(ndof))
+opt.set_min_objective(fun_nlopt)
+x = opt.optimize(np.random.random(ndof))
 
