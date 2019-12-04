@@ -252,8 +252,9 @@ def SolveLayerEigensystem(omega,kx,ky,kp,ep2):
     k = np.vstack((np.diag(kx),np.diag(ky)))
     kkT = np.dot(k,np.transpose(k))
     M = np.dot(ep2,kp) - kkT
-
+    
     q,phi = eig(M)
+
     q = sqrt(q)
     # branch cut choice
     q = np.where(np.imag(q)<0.,-q,q)

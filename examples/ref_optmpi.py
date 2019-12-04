@@ -1,3 +1,5 @@
+import os
+os.environ["OPENBLAS_NUM_THREADS"] = "1" # for hera
 import autograd.numpy as np
 from autograd import grad
 import nlopt, time, numpy as npf
@@ -25,7 +27,7 @@ A = 10
 vf = 0.2*c0
 lam0 = 1.2e-6
 
-N = 20
+N = 40
 v = np.linspace(0,vf,N)
 freq_list = np.sqrt((c0-v)/(c0+v))
 gamma = 1./np.sqrt(1-(v/c0)**2)
@@ -33,7 +35,7 @@ gamma = 1./np.sqrt(1-(v/c0)**2)
 Nx = 50
 Ny = 50
 
-nG = 101
+nG = 201
 # lattice vector
 Lx = Period/lam0
 Ly = Period/lam0
@@ -75,11 +77,9 @@ def fun_freq(dof,ind,Qabs):
     R,_ = obj.RT_Solve()
 
     integrand = mT/R*gamma[ind]*v[ind]/(1-v[ind]/c0)**2
-    D = c0/2/I/A*integrand/1e9
+    D = c0/2/I/A*integrand*(v[1]-v[0])/1e9
     if ind == 0 or ind == N-1:
         D = 0.5*D
-    # if 'autograd' not in str(type(D)):
-    #     print rank,ind,R,D
 
     return D
 
@@ -97,14 +97,15 @@ def fun_mpi(dof,Qabs):
             fun = lambda dof: fun_freq(dof,ind,Qabs)
             grad_fun = grad(fun)
 
-            Dl.append([ind,fun(dof)])
-            gl.append([ind,grad_fun(dof)])
+            val = fun(dof)
+            gval = grad_fun(dof)
 
-    t1 = time.time()
+            Dl.append([ind,val])
+            gl.append([ind,gval])
+
     Dl = comm.gather(Dl)
     gl = comm.gather(gl)
-    t2 = time.time()
-    print rank,'gather',t2 - t1
+
     if rank == 0:
         Dl = npf.concatenate(npf.array(Dl))
         gl = npf.concatenate(npf.array(gl))
@@ -121,6 +122,7 @@ def fun_mpi(dof,Qabs):
     return D,gradn
 
 dof = np.ones(Nx*Ny)
+dof = comm.bcast(dof)
 
 D,grad = fun_mpi(dof,np.inf)
 if comm.rank == 0:

@@ -1,3 +1,3 @@
 This code is modified from Victor Liu's S4, which is implemented in
 C. It's now a python (v2.7) code with AUTOGRAD supported.  Most
-features in S4's rcwa.cpp is implemented.
+features in S4's rcwa.cpp are implemented.
