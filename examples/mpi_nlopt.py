@@ -53,8 +53,9 @@ class nlopt_opt:
 
 
 def fun_mpi(dof,fun,N):
-    '''mpi parallization for fun(dof,ctrl)
+    '''mpi parallization for fun(dof,ctrl), ctrl is the numbering of ctrl's frequency calculation
     N calculations in total
+    returns the sum: sum_{ctrl=1 toN} fun(dof,ctrl)
     '''
     dof = comm.bcast(dof)
 
