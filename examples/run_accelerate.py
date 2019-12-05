@@ -12,6 +12,9 @@ c0 = 299792458.
 
 # input parameters
 Qabs = 20.
+init_type = 'acc_nG101_Nf40_Nx50_Ny50_tnm100.0_Pmicron2.0_Silicon_dof5.txt'
+material = 'Silicon'
+
 nG = 101
 Nf = 40
 Nx = 50
@@ -20,13 +23,18 @@ thickness = 100e-9
 Period = 2e-6
 
 lam0 = 1.2e-6
-density = 2.329e3
-epsdiff = 11.3
+if material == 'Silicon':
+    density = 2.329e3
+    epsdiff = 11.3
+else:
+    raise Exception('Material not included')
 
 mload = 1e-4
 laserP = 1e10
 area = 10
 final_v = 0.2
+
+filename = 'acc_nG'+str(nG)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_tnm'+str(thickness*1e9)+'_Pmicron'+str(Period*1e6)+'_'+material+'_'
 
 # doppler shift
 v = np.linspace(0,final_v*c0,Nf)
@@ -85,15 +93,13 @@ def accelerate_D(dof,ctrl):
 
 # nlopt setup
 ndof = Nx*Ny
-init = np.random.random(Nx*Ny)
 
 ismax = 0 # 0 for minimization
 lb = 0.
 ub = 1.
 maxeval = 100
 xtol = 1e-5
-filename = 'test'
-savefile_N = 10
+savefile_N = 5
 
 nopt = mpi_nlopt.nlopt_opt(ndof,lb,ub,maxeval,xtol,filename,savefile_N)
-x = nopt.fun_opt(ismax,Nf,accelerate_D,init)
+x = nopt.fun_opt(ismax,Nf,accelerate_D,init_type)

@@ -23,13 +23,27 @@ class nlopt_opt:
 
         self.filename = filename
         self.savefile_N = savefile_N
+        self.ndof = ndof
         self.ctrl = 0
 
-    def fun_opt(self,ismax,N,fun,init):
+    def fun_opt(self,ismax,N,fun,init_type):
         '''
         fun(dof,ctrl): function that returns integrand at ctrl's frequency
         N: number of parallel frequency computations
         '''
+        init = []
+        if rank == 0:
+            if init_type == 'rand':
+                init = np.random.random(self.ndof)
+            elif init_type == 'vac':
+                init = np.zeros(self.ndof)
+            elif init_type == 'one':
+                init = np.ones(self.ndof)
+            else:
+                tmp = open(init_type,'r')
+                init = np.loadtxt(tmp)
+        init = comm.bcast(init)
+
         def fun_nlopt(dof,gradn):
             val,gn = fun_mpi(dof,fun,N)
             gradn[:] = gn
