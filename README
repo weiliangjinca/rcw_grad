@@ -3,6 +3,6 @@ C. It's now a python (v2.7) code with AUTOGRAD supported.  Most
 features in S4's rcwa.cpp are implemented.
 
 Required package:
--- mpi4py for parallization
+-- mpi4py for parallel
 -- autograd for gradient
 -- nlopt for optimization
