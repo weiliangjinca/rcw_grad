@@ -201,6 +201,8 @@ class RCWA_obj:
     def RT_Solve(self):
         '''
         Reflection and transmission power computation
+        Returns 2R and 2T, following Victor's notation
+        Maybe because 2* makes S_z = 1 for H=1 in vacuum
         '''
         aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
 
@@ -211,9 +213,37 @@ class RCWA_obj:
         T = np.real(fe)
         return R,T
 
-    # def get_field(self,which_layer,z_offset):
-    #     ai, bi = SolveInterior(which_layer,a0,bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
-    #     ai, bi = TranslateAmplitudes(self.q_list[which_layer],self.thickness_list[which_layer],z_offset,ai,bi)
+    def Get_FieldFourier(self,which_layer,z_offset):
+        '''
+        returns field amplitude in fourier space: [ex,ey,ez], [hx,hy,hz]
+        '''
+        ai, bi = SolveInterior(which_layer,self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+        ai, bi = TranslateAmplitudes(self.q_list[which_layer],self.thickness_list[which_layer],z_offset,ai,bi)
+
+        # hx, hy in Fourier space
+        fhxy = np.dot(self.phi_list[which_layer],ai+bi)
+        fhx = fhxy[:self.nG]
+        fhy = fhxy[self.nG:]
+
+        # ex,ey in Fourier space
+        tmp1 = (ai-bi)/self.omega/self.q_list[which_layer]
+        tmp2 = np.dot(self.phi_list[which_layer],tmp1)
+        fexy = np.dot(self.kp_list[which_layer],tmp2)
+        fey = - fexy[:self.nG]
+        fex = fexy[self.nG:]
+        
+        #hz in Fourier space
+        fhz = (self.kx*fey - self.ky*fex)/self.omega
+
+        #ez in Fourier space
+        fez = (self.ky*fhx - self.kx*fhy)/self.omega
+        if self.id_list[which_layer][0] == 0:
+            fez = fez / self.Uniform_ep_list[self.id_list[which_layer][2]]
+        else:
+            fez = np.dot(self.Patterned_epinv_list[self.id_list[which_layer][2]],fez)
+
+        return [fex,fey,fez],[fhx,fhy,fhz]
+
 
 def MakeKPMatrix(omega,layer_type,epinv,kx,ky):
     nG = len(kx)
@@ -353,12 +383,16 @@ def SolveInterior(which_layer,a0,bN,q_list,phi_list,kp_list,thickness_list):
     return ai,bi
 
 def  TranslateAmplitudes(q,thickness,dz,ai,bi):
-    ai = ai*np.exp(q*dz)
-    bi = bi*np.exp(q*(thickness-dz))
+    ai = ai*np.exp(1j*q*dz)
+    bi = bi*np.exp(1j*q*(thickness-dz))
     return ai,bi
         
 
 def GetZPoyntingFlux(ai,bi,omega,kp,phi,q):
+    '''
+     Returns 2S_z, following Victor's notation
+     Maybe because 2* makes S_z = 1 for H=1 in vacuum
+    '''
     # A = kp phi inv(omega*q)
     A = np.dot(np.dot(kp,phi),  np.diag(1./omega/q))
 
