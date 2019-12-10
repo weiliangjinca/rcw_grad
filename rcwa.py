@@ -177,8 +177,8 @@ class RCWA_obj:
             Nx = self.GridLayer_Nxy_list[ptri][0]
             Ny = self.GridLayer_Nxy_list[ptri][1]
             dN = 1./Nx/Ny
-            
-            dofi = np.reshape(dof[ptr:Nx*Ny],[Nx,Ny])
+
+            dofi = np.reshape(dof[ptr:ptr+Nx*Ny],[Nx,Ny])
             epdiff = self.Patterned_epdiff_list[self.id_list[i][2]]
             epbkg = self.Patterned_epbkg_list[self.id_list[i][2]]
             

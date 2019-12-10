@@ -1,6 +1,7 @@
 import os,sys
 os.environ["OPENBLAS_NUM_THREADS"] = "1" # for hera
-sys.path.append('../')
+sys.path.append('/home/wljin/MyLocal/RCWA/')
+sys.path.append('/home/wljin/MyLocal/RCWA/examples/')
 
 import autograd.numpy as np
 import numpy as npf
@@ -12,19 +13,23 @@ c0 = 299792458.
 
 # input parameters
 Qabs = 20.
-init_type = 'acc_nG101_Nf40_Nx50_Ny50_tnm100.0_Pmicron2.0_Silicon_dof5.txt'
+init_type = 'rand'
 material = 'Silicon'
 
 nG = 101
-Nf = 40
+Nf = 20
+layer = 3
 Nx = 50
 Ny = 50 
-thickness = 100e-9
-Period = 2e-6
+thickness = 50e-9
+Period = 3e-6
 
 lam0 = 1.2e-6
 if material == 'Silicon':
     density = 2.329e3
+    epsdiff = 11.3
+elif material == 'test':
+    density = 1e2
     epsdiff = 11.3
 else:
     raise Exception('Material not included')
@@ -34,7 +39,7 @@ laserP = 1e10
 area = 10
 final_v = 0.2
 
-filename = 'acc_nG'+str(nG)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_tnm'+str(thickness*1e9)+'_Pmicron'+str(Period*1e6)+'_'+material+'_'
+filename = './DATA/acc_layer'+str(layer)+'_'+material+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
 
 # doppler shift
 v = np.linspace(0,final_v*c0,Nf)
@@ -69,12 +74,18 @@ thick3 = 1.
 def accelerate_D(dof,ctrl):
     ''' ctrl: ctrl's frequency calculation
     '''
-    mT = mload + thickness*area*density*np.mean(dof)
+    Nxy = Nx*Ny
+    mT = mload
+    for i in range(layer):
+        mT = mT + thickness*area*density*np.mean(dof[i*Nxy:(i+1)*Nxy])
 
     freqcmp = freq_list[ctrl]*(1+1j/2/Qabs)
     obj = rcwa.RCWA_obj(nG,L1,L2,freqcmp,theta,phi,verbose=0)
     obj.Add_LayerUniform(thick1,epsuniform1)
-    obj.Add_LayerGrid(thick2,epsdiff,epsbkg,Nx,Ny)
+
+    for i in range(layer):
+        obj.Add_LayerGrid(thick2,epsdiff,epsbkg,Nx,Ny)
+
     obj.Add_LayerUniform(thick3,epsuniform3)
     obj.Init_Setup(Gmethod=0)
     obj.MakeExcitationPlanewave(p_amp,p_phase,s_amp,s_phase,order = 0)
@@ -92,14 +103,14 @@ def accelerate_D(dof,ctrl):
 
 
 # nlopt setup
-ndof = Nx*Ny
+ndof = Nx*Ny*layer
 
 ismax = 0 # 0 for minimization
 lb = 0.
 ub = 1.
-maxeval = 100
-xtol = 1e-5
-savefile_N = 5
+maxeval = 1000
+xtol = 1e-10
+savefile_N = 10
 
 nopt = mpi_nlopt.nlopt_opt(ndof,lb,ub,maxeval,xtol,filename,savefile_N)
 x = nopt.fun_opt(ismax,Nf,accelerate_D,init_type)
