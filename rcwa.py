@@ -244,6 +244,43 @@ class RCWA_obj:
 
         return [fex,fey,fez],[fhx,fhy,fhz]
 
+    def Get_ZStressTensorIntegral(self,which_layer):
+        '''
+        returns 2F_x,2F_y,2F_z, integrated over z-plane
+        '''
+        z_offset = 0.
+        e,h = self.Get_FieldFourier(which_layer,z_offset)
+        ex = e[0]
+        ey = e[1]
+        ez = e[2]
+
+        hx = h[0]
+        hy = h[1]
+        hz = h[2]
+
+        # compute D = epsilon E
+        ## Dz = epsilon_z E_z = (ky*hx - kx*hy)/self.omega
+        dz = (self.ky*hx - self.kx*hy)/self.omega
+
+        ## Dxy = epsilon2 * Exy
+        if self.id_list[which_layer][0] == 0:
+            dx = ex * self.Uniform_ep_list[self.id_list[which_layer][2]]
+            dy = ey * self.Uniform_ep_list[self.id_list[which_layer][2]]
+        else:
+            exy = np.hstack((-ey,ex))
+            dxy = np.dot(self.Patterned_ep2_list[self.id_list[which_layer][2]],exy)
+            dx = dxy[self.nG:]
+            dy = -dxy[:self.nG]
+
+        Tx = np.sum(ex*np.conj(dz)+hx*np.conj(hz))
+        Ty = np.sum(ey*np.conj(dz)+hy*np.conj(hz))
+        Tz = 0.5*np.sum(ez*np.conj(dz)+hz*np.conj(hz)-ey*np.conj(dy)-ex*np.conj(dx)-np.abs(hx)**2-np.abs(hy)**2)
+
+        Tx = np.real(Tx)
+        Ty = np.real(Ty)
+        Tz = np.real(Tz)
+
+        return Tx,Ty,Tz
 
 def MakeKPMatrix(omega,layer_type,epinv,kx,ky):
     nG = len(kx)
