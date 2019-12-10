@@ -244,6 +244,26 @@ class RCWA_obj:
 
         return [fex,fey,fez],[fhx,fhy,fhz]
 
+    def Get_FieldOnGrid(self,which_layer,z_offset):
+
+        assert self.id_list[which_layer][0] == 1, 'Needs to be grids layer'
+        Nxy = self.GridLayer_Nxy_list[self.id_list[which_layer][3]]
+        Nx = Nxy[0]
+        Ny = Nxy[1]
+
+        # e,h in Fourier space
+        fe,fh = self.Get_FieldFourier(which_layer,z_offset)
+
+        ex = iff.get_ifft(Nx,Ny,fe[0],self.G)
+        ey = iff.get_ifft(Nx,Ny,fe[1],self.G)
+        ez = iff.get_ifft(Nx,Ny,fe[2],self.G)
+
+        hx = iff.get_ifft(Nx,Ny,fh[0],self.G)
+        hy = iff.get_ifft(Nx,Ny,fh[1],self.G)
+        hz = iff.get_ifft(Nx,Ny,fh[2],self.G)
+
+        return [ex,ey,ez],[hx,hy,hz]
+
     def Get_ZStressTensorIntegral(self,which_layer):
         '''
         returns 2F_x,2F_y,2F_z, integrated over z-plane
