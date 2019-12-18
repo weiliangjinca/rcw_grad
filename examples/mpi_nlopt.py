@@ -26,7 +26,7 @@ class nlopt_opt:
         self.ndof = ndof
         self.ctrl = 0
 
-    def fun_opt(self,ismax,N,fun,init_type):
+    def fun_opt(self,ismax,N,fun,init_type,constraint=None):
         '''
         fun(dof,ctrl): function that returns integrand at ctrl's frequency
         N: number of parallel frequency computations
@@ -56,6 +56,18 @@ class nlopt_opt:
 
             self.ctrl += 1
             return val
+
+        if constraint != None:
+            def fun_cons(dof,gradn):
+                val,gn = fun_mpi(dof,constraint[0],N)
+                gradn[:] = gn
+
+                if 'autograd' not in str(type(val)) and rank == 0:
+                    print self.ctrl,'cons = ',val
+
+                return val-constraint[1]
+
+            self.opt.add_inequality_constraint(fun_cons, 1e-8)
 
         if ismax == 1:
             self.opt.set_max_objective(fun_nlopt)

@@ -198,11 +198,13 @@ class RCWA_obj:
             ptr += Nx*Ny
             ptri += 1
 
-    def RT_Solve(self):
+    def RT_Solve(self,normalize = 0):
         '''
         Reflection and transmission power computation
         Returns 2R and 2T, following Victor's notation
         Maybe because 2* makes S_z = 1 for H=1 in vacuum
+
+        if normalize = 1, it will be divided by n[0]*cos(theta)
         '''
         aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
 
@@ -211,9 +213,14 @@ class RCWA_obj:
 
         R = np.real(-bi)
         T = np.real(fe)
+
+        NL = sqrt(self.Uniform_ep_list[0])/np.cos(self.theta)
+        if normalize == 1:
+            R = R*NL
+            T = T*NL
         return R,T
 
-    def Get_FieldFourier(self,which_layer,z_offset):
+    def Solve_FieldFourier(self,which_layer,z_offset):
         '''
         returns field amplitude in fourier space: [ex,ey,ez], [hx,hy,hz]
         '''
@@ -244,15 +251,15 @@ class RCWA_obj:
 
         return [fex,fey,fez],[fhx,fhy,fhz]
 
-    def Get_FieldOnGrid(self,which_layer,z_offset):
-
+    def Solve_FieldOnGrid(self,which_layer,z_offset):
         assert self.id_list[which_layer][0] == 1, 'Needs to be grids layer'
+
         Nxy = self.GridLayer_Nxy_list[self.id_list[which_layer][3]]
         Nx = Nxy[0]
         Ny = Nxy[1]
 
         # e,h in Fourier space
-        fe,fh = self.Get_FieldFourier(which_layer,z_offset)
+        fe,fh = self.Solve_FieldFourier(which_layer,z_offset)
 
         ex = iff.get_ifft(Nx,Ny,fe[0],self.G)
         ey = iff.get_ifft(Nx,Ny,fe[1],self.G)
@@ -264,12 +271,12 @@ class RCWA_obj:
 
         return [ex,ey,ez],[hx,hy,hz]
 
-    def Get_ZStressTensorIntegral(self,which_layer):
+    def Solve_ZStressTensorIntegral(self,which_layer):
         '''
         returns 2F_x,2F_y,2F_z, integrated over z-plane
         '''
         z_offset = 0.
-        e,h = self.Get_FieldFourier(which_layer,z_offset)
+        e,h = self.Solve_FieldFourier(which_layer,z_offset)
         ex = e[0]
         ey = e[1]
         ez = e[2]
@@ -466,3 +473,10 @@ def GetZPoyntingFlux(ai,bi,omega,kp,phi,q):
 
     return forward, backward
     #return np.real(forward), np.real(backward)
+
+# def Matrix_zintegral(q,thickness,'ab'):
+#     nG2 = len(q)
+#     qi,qj = np.meshgrid(q,q,indexing='ij')
+
+#     if 'ab' == 'aa':
+        
