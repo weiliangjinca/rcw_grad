@@ -128,7 +128,7 @@ class RCWA_obj:
         
         #if comm.rank == 0 and verbose>0:
         if self.verbose>0:
-            print 'Total nG = ',self.nG                
+            print('Total nG = ',self.nG)
 
         self.Patterned_ep2_list = [None]*self.Patterned_N
         self.Patterned_epinv_list = [None]*self.Patterned_N            
@@ -198,6 +198,37 @@ class RCWA_obj:
             ptr += Nx*Ny
             ptri += 1
 
+    def GridLayer_geteps(self,ep_all):
+        '''
+        Fourier transform + eigenvalue for grid layer
+        '''
+        ptri = 0
+        ptr = 0
+        for i in range(self.Layer_N):
+            if self.id_list[i][0] != 1:
+                continue
+            
+            Nx = self.GridLayer_Nxy_list[ptri][0]
+            Ny = self.GridLayer_Nxy_list[ptri][1]
+            dN = 1./Nx/Ny
+
+            ep_grid = np.reshape(ep_all[ptr:ptr+Nx*Ny],[Nx,Ny])
+            
+            epinv, ep2 = iff.GetEpsilon_FFT(dN,ep_grid,self.G)
+
+            self.Patterned_epinv_list[self.id_list[i][2]] = epinv
+            self.Patterned_ep2_list[self.id_list[i][2]] = ep2
+
+            kp = MakeKPMatrix(self.omega,1,epinv,self.kx,self.ky)
+            self.kp_list[self.id_list[i][1]] = kp
+
+            q,phi = SolveLayerEigensystem(self.omega,self.kx,self.ky,kp,ep2)
+            self.q_list[self.id_list[i][1]] = q
+            self.phi_list[self.id_list[i][1]] = phi
+
+            ptr += Nx*Ny
+            ptri += 1            
+
     def RT_Solve(self,normalize = 0):
         '''
         Reflection and transmission power computation
@@ -250,6 +281,27 @@ class RCWA_obj:
             fez = np.dot(self.Patterned_epinv_list[self.id_list[which_layer][2]],fez)
 
         return [fex,fey,fez],[fhx,fhy,fhz]
+
+    def GetAmplitudes(self,which_layer,z_offset):
+        '''
+        returns fourier amplitude
+        '''
+        if which_layer == 0 :
+            aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+            ai = self.a0
+            bi = b0
+
+        elif which_layer == self.Layer_N:
+            aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+            ai = aN
+            bi = self.bN
+
+        else:
+            ai, bi = SolveInterior(which_layer,self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+
+        ai, bi = TranslateAmplitudes(self.q_list[which_layer],self.thickness_list[which_layer],z_offset,ai,bi)
+
+        return ai,bi
 
     def Solve_FieldOnGrid(self,which_layer,z_offset):
         assert self.id_list[which_layer][0] == 1, 'Needs to be grids layer'
@@ -479,4 +531,3 @@ def GetZPoyntingFlux(ai,bi,omega,kp,phi,q):
 #     qi,qj = np.meshgrid(q,q,indexing='ij')
 
 #     if 'ab' == 'aa':
-        
