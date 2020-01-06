@@ -159,7 +159,7 @@ class RCWA_obj:
             -p_amp*np.sin(phi)*np.exp(1j*p_phase)
         
         a0[order+self.nG] = -s_amp*np.cos(theta)*np.sin(phi)*np.exp(1j*s_phase) \
-            -p_amp*np.cos(phi)*np.exp(1j*p_phase)
+            +p_amp*np.cos(phi)*np.exp(1j*p_phase)
         
         self.a0 = a0
         self.bN = bN
