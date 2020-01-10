@@ -38,9 +38,9 @@ class RCWA_obj:
         L1,L2: lattice vectors, in the list format, (x,y)
 
         '''
-        assert type(nG) == int, 'nG must be an integar'
-        assert type(theta) == float, 'angle theta should be a float'
-        assert type(phi) == float, 'angle phi should be a float'
+        # assert type(nG) == int, 'nG must be an integar'
+        # assert type(theta) == float, 'angle theta should be a float'
+        # assert type(phi) == float, 'angle phi should be a float'
         
         self.freq = freq
         self.omega = 2*np.pi*freq+0.j
@@ -251,12 +251,32 @@ class RCWA_obj:
             T = T*NL
         return R,T
 
+    def GetAmplitudes(self,which_layer,z_offset):
+        '''
+        returns fourier amplitude
+        '''
+        if which_layer == 0 :
+            aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+            ai = self.a0
+            bi = b0
+
+        elif which_layer == self.Layer_N:
+            aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+            ai = aN
+            bi = self.bN
+
+        else:
+            ai, bi = SolveInterior(which_layer,self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+
+        ai, bi = TranslateAmplitudes(self.q_list[which_layer],self.thickness_list[which_layer],z_offset,ai,bi)
+
+        return ai,bi
+    
     def Solve_FieldFourier(self,which_layer,z_offset):
         '''
         returns field amplitude in fourier space: [ex,ey,ez], [hx,hy,hz]
         '''
-        ai, bi = SolveInterior(which_layer,self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
-        ai, bi = TranslateAmplitudes(self.q_list[which_layer],self.thickness_list[which_layer],z_offset,ai,bi)
+        ai, bi = self.GetAmplitudes(which_layer,z_offset)
 
         # hx, hy in Fourier space
         fhxy = np.dot(self.phi_list[which_layer],ai+bi)
@@ -282,26 +302,52 @@ class RCWA_obj:
 
         return [fex,fey,fez],[fhx,fhy,fhz]
 
-    def GetAmplitudes(self,which_layer,z_offset):
+    def Volume_integral(self,which_layer,Matconv):
+        '''consider Matconv is isotropic in three dimensions
         '''
-        returns fourier amplitude
-        '''
-        if which_layer == 0 :
-            aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
-            ai = self.a0
-            bi = b0
 
-        elif which_layer == self.Layer_N:
-            aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
-            ai = aN
-            bi = self.bN
-
+        kp = self.kp_list[which_layer]
+        q = self.q_list[which_layer]
+        phi = self.phi_list[which_layer]
+        if self.id_list[which_layer][0] == 0:
+            epinv = 1. / self.Uniform_ep_list[self.id_list[which_layer][2]]
         else:
-            ai, bi = SolveInterior(which_layer,self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+            epinv = self.Patterned_epinv_list[self.id_list[which_layer][2]]
 
-        ai, bi = TranslateAmplitudes(self.q_list[which_layer],self.thickness_list[which_layer],z_offset,ai,bi)
+        # amplitdue at z = 0 of that layer
+        ai, bi = self.GetAmplitudes(which_layer,0.)
+        ab = np.hstack((ai,bi))
+        abMatrix = np.outer(np.conj(ab),ab)
+        
+        # integral over z-direction
+        Maa,Mab = Matrix_zintegral(self.q_list[which_layer],self.thickness_list[which_layer])
+        tmp1 = np.vstack((Maa,Mab))
+        tmp2 = np.vstack((Mab,Maa))
+        Mt = np.hstack((tmp1,tmp2))
+        # overall
+        abM = abMatrix * Mt
 
-        return ai,bi
+        # F matrix
+        Faxy = np.dot(np.dot(kp,phi), np.diag(1./self.omega/q))
+        Faz1 = 1./self.omega*np.dot(epinv,np.diag(self.ky))
+        Faz2 = -1./self.omega*np.dot(epinv,np.diag(self.kx))
+        Faz = np.hstack((Faz1,Faz2))
+
+        tmp1 = np.vstack((Faxy,Faz))
+        tmp2 = np.vstack((-Faxy,Faz))
+        F = np.hstack((tmp1,tmp2))
+
+        # consider Matconv is isotropic in three dimensions
+        Mzeros = np.zeros_like(Matconv)
+        Mav = np.vstack((np.hstack((Matconv,Mzeros,Mzeros)),\
+                         np.hstack((Mzeros,Matconv,Mzeros)),\
+                         np.hstack((Mzeros,Mzeros,Matconv))))
+
+        # integral = Tr[ abMatrix * F^\dagger *  Matconv *F ] 
+        tmp = np.dot(np.dot(np.conj(np.transpose(F)),Mav),F)
+        val = np.trace(np.dot(abM,tmp))
+
+        return val
 
     def Solve_FieldOnGrid(self,which_layer,z_offset):
         assert self.id_list[which_layer][0] == 1, 'Needs to be grids layer'
@@ -526,8 +572,30 @@ def GetZPoyntingFlux(ai,bi,omega,kp,phi,q):
     return forward, backward
     #return np.real(forward), np.real(backward)
 
-# def Matrix_zintegral(q,thickness,'ab'):
-#     nG2 = len(q)
-#     qi,qj = np.meshgrid(q,q,indexing='ij')
+def Matrix_zintegral(q,thickness):
+    ''' Generate matrix for z-integral
+    '''
+    nG2 = len(q)
+    qi,qj = np.meshgrid(q,q,indexing='ij')
 
-#     if 'ab' == 'aa':
+    # # Maa = \int exp(i q_i z)^* exp(i q_j z)
+    # #     = [exp(i(q_j-q_i^*)t)-1]/i(q_j-q_i^*)
+    # # Mbb = \int exp(i q_i (t-z))^* exp(i q_j (t-z))
+    # #     = exp(i(q_j-q_i^*)t)  [exp(i(q_i^*-q_j)t)-1]/i(q_i^*-q_j)
+    # #     = Maa
+    # # Mab = \int exp(i q_i z)^* exp(i q_j (t-z))
+    # #     = exp(iq_j t) [1-exp(-i(q_i^*+q_j)t)]/i(q_i^*+q_j)
+    # #     = [exp(iq_j t)-exp(-i q_i^* t)]/i(q_i^*+q_j)
+    # # Mba = \int exp(i q_i (t-z))^* exp(i q_j z)
+    # #     = exp(-iq_i^* t) [exp(i(q_j+q_i^*)t)-1]/i(q_j+q_i^*)
+    # #     = Mab
+    # Maa = (np.exp(1j*(qj-np.conj(qi))*thickness)-1)/1j/(qj-np.conj(qi))
+    # Mab = (np.exp(1j*qj*thickness)-np.exp(-1j*np.conj(qi)*thickness))/1j/(qj+np.conj(qi))
+
+    # M = t exp(0.5it (qj-qi^*)) sinc(0.5d (sjqj-siqi^*), note in python sinc = sin(pi x)/pi x
+    qij = qj-np.conj(qi)
+    Maa = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij/np.pi)
+
+    qij2 = qj+np.conj(qi)
+    Mab = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij2/np.pi)
+    return Maa,Mab
