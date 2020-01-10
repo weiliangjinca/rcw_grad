@@ -126,6 +126,9 @@ class RCWA_obj:
         self.G,self.nG = kbloch.Lattice_getG(self.nG,self.Lk1,self.Lk2,method=Gmethod)
         self.kx,self.ky = kbloch.Lattice_SetKs(self.G, kx0, ky0, self.Lk1, self.Lk2)
         
+        #normalization factor for energies off normal incidence
+        self.normalization = sqrt(self.Uniform_ep_list[0])/np.cos(self.theta)
+        
         #if comm.rank == 0 and verbose>0:
         if self.verbose>0:
             print('Total nG = ',self.nG)
@@ -245,10 +248,9 @@ class RCWA_obj:
         R = np.real(-bi)
         T = np.real(fe)
 
-        NL = sqrt(self.Uniform_ep_list[0])/np.cos(self.theta)
         if normalize == 1:
-            R = R*NL
-            T = T*NL
+            R = R*self.normalization
+            T = T*self.normalization
         return R,T
 
     def GetAmplitudes(self,which_layer,z_offset):
@@ -302,53 +304,6 @@ class RCWA_obj:
 
         return [fex,fey,fez],[fhx,fhy,fhz]
 
-    def Volume_integral(self,which_layer,Matconv):
-        '''consider Matconv is isotropic in three dimensions
-        '''
-
-        kp = self.kp_list[which_layer]
-        q = self.q_list[which_layer]
-        phi = self.phi_list[which_layer]
-        if self.id_list[which_layer][0] == 0:
-            epinv = 1. / self.Uniform_ep_list[self.id_list[which_layer][2]]
-        else:
-            epinv = self.Patterned_epinv_list[self.id_list[which_layer][2]]
-
-        # amplitdue at z = 0 of that layer
-        ai, bi = self.GetAmplitudes(which_layer,0.)
-        ab = np.hstack((ai,bi))
-        abMatrix = np.outer(np.conj(ab),ab)
-        
-        # integral over z-direction
-        Maa,Mab = Matrix_zintegral(self.q_list[which_layer],self.thickness_list[which_layer])
-        tmp1 = np.vstack((Maa,Mab))
-        tmp2 = np.vstack((Mab,Maa))
-        Mt = np.hstack((tmp1,tmp2))
-        # overall
-        abM = abMatrix * Mt
-
-        # F matrix
-        Faxy = np.dot(np.dot(kp,phi), np.diag(1./self.omega/q))
-        Faz1 = 1./self.omega*np.dot(epinv,np.diag(self.ky))
-        Faz2 = -1./self.omega*np.dot(epinv,np.diag(self.kx))
-        Faz = np.hstack((Faz1,Faz2))
-
-        tmp1 = np.vstack((Faxy,Faz))
-        tmp2 = np.vstack((-Faxy,Faz))
-        F = np.hstack((tmp1,tmp2))
-
-        # consider Matconv is isotropic in three dimensions
-        Mzeros = np.zeros_like(Matconv)
-        Mav = np.vstack((np.hstack((Matconv,Mzeros,Mzeros)),\
-                         np.hstack((Mzeros,Matconv,Mzeros)),\
-                         np.hstack((Mzeros,Mzeros,Matconv))))
-
-        # integral = Tr[ abMatrix * F^\dagger *  Matconv *F ] 
-        tmp = np.dot(np.dot(np.conj(np.transpose(F)),Mav),F)
-        val = np.trace(np.dot(abM,tmp))
-
-        return val
-
     def Solve_FieldOnGrid(self,which_layer,z_offset):
         assert self.id_list[which_layer][0] == 1, 'Needs to be grids layer'
 
@@ -368,6 +323,53 @@ class RCWA_obj:
         hz = iff.get_ifft(Nx,Ny,fh[2],self.G)
 
         return [ex,ey,ez],[hx,hy,hz]
+
+    def Volume_integral(self,which_layer,Mx,My,Mz,normalize=0):
+        '''Mxyz is convolution matrix
+        This function computes 1/A\int_V Mx|Ex|^2+My|Ey|^2+Mz|Ez|^2
+        To be consistent with Poynting vector defintion here, the absorbed power will be just omega*output
+        '''
+
+        kp = self.kp_list[which_layer]
+        q = self.q_list[which_layer]
+        phi = self.phi_list[which_layer]
+        if self.id_list[which_layer][0] == 0:
+            epinv = 1. / self.Uniform_ep_list[self.id_list[which_layer][2]]
+        else:
+            epinv = self.Patterned_epinv_list[self.id_list[which_layer][2]]
+
+        # amplitdue at z = 0 of that layer
+        ai, bi = self.GetAmplitudes(which_layer,0.)
+        ab = np.hstack((ai,bi))
+        abMatrix = np.outer(np.conj(ab),ab)
+        
+        Mt = Matrix_zintegral(q,self.thickness_list[which_layer])
+        # overall
+        abM = abMatrix * Mt
+
+        # F matrix
+        Faxy = np.dot(np.dot(kp,phi), np.diag(1./self.omega/q))
+        Faz1 = 1./self.omega*np.dot(epinv,np.diag(self.ky))
+        Faz2 = -1./self.omega*np.dot(epinv,np.diag(self.kx))
+        Faz = np.dot(np.hstack((Faz1,Faz2)),phi)
+
+        tmp1 = np.vstack((Faxy,Faz))
+        tmp2 = np.vstack((-Faxy,Faz))
+        F = np.hstack((tmp1,tmp2))
+
+        # consider Mtotal
+        Mzeros = np.zeros_like(Mx)
+        Mtotal = np.vstack((np.hstack((Mx,Mzeros,Mzeros)),\
+                            np.hstack((Mzeros,My,Mzeros)),\
+                            np.hstack((Mzeros,Mzeros,Mz))))
+
+        # integral = Tr[ abMatrix * F^\dagger *  Matconv *F ] 
+        tmp = np.dot(np.dot(np.conj(np.transpose(F)),Mtotal),F)
+        val = np.trace(np.dot(abM,tmp))
+
+        if normalize == 1:
+            val = val*self.normalization
+        return val
 
     def Solve_ZStressTensorIntegral(self,which_layer):
         '''
@@ -552,7 +554,7 @@ def  TranslateAmplitudes(q,thickness,dz,ai,bi):
 
 def GetZPoyntingFlux(ai,bi,omega,kp,phi,q):
     '''
-     Returns 2S_z, following Victor's notation
+     Returns 2S_z/A, following Victor's notation
      Maybe because 2* makes S_z = 1 for H=1 in vacuum
     '''
     # A = kp phi inv(omega*q)
@@ -598,4 +600,8 @@ def Matrix_zintegral(q,thickness):
 
     qij2 = qj+np.conj(qi)
     Mab = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij2/np.pi)
-    return Maa,Mab
+
+    tmp1 = np.vstack((Maa,Mab))
+    tmp2 = np.vstack((Mab,Maa))
+    Mt = np.hstack((tmp1,tmp2))
+    return Mt
