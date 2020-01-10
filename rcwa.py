@@ -546,7 +546,7 @@ def SolveInterior(which_layer,a0,bN,q_list,phi_list,kp_list,thickness_list):
     
     return ai,bi
 
-def  TranslateAmplitudes(q,thickness,dz,ai,bi):
+def TranslateAmplitudes(q,thickness,dz,ai,bi):
     ai = ai*np.exp(1j*q*dz)
     bi = bi*np.exp(1j*q*(thickness-dz))
     return ai,bi
@@ -574,7 +574,7 @@ def GetZPoyntingFlux(ai,bi,omega,kp,phi,q):
     return forward, backward
     #return np.real(forward), np.real(backward)
 
-def Matrix_zintegral(q,thickness):
+def Matrix_zintegral(q,thickness,shift=1e-10):
     ''' Generate matrix for z-integral
     '''
     nG2 = len(q)
@@ -595,11 +595,13 @@ def Matrix_zintegral(q,thickness):
     # Mab = (np.exp(1j*qj*thickness)-np.exp(-1j*np.conj(qi)*thickness))/1j/(qj+np.conj(qi))
 
     # M = t exp(0.5it (qj-qi^*)) sinc(0.5d (sjqj-siqi^*), note in python sinc = sin(pi x)/pi x
-    qij = qj-np.conj(qi)
-    Maa = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij/np.pi)
+    qij = qj-np.conj(qi)+np.eye(nG2)*shift
+    Maa = (np.exp(1j*qij*thickness)-1)/1j/qij # this is more robust
+    #Maa = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij/np.pi)
 
     qij2 = qj+np.conj(qi)
     Mab = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij2/np.pi)
+    #Mab = (np.exp(1j*qj*thickness)-np.exp(-1j*np.conj(qi)*thickness))/1j/(qj+np.conj(qi))
 
     tmp1 = np.vstack((Maa,Mab))
     tmp2 = np.vstack((Mab,Maa))
