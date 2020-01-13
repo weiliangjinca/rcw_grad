@@ -578,7 +578,7 @@ def Matrix_zintegral(q,thickness,shift=1e-10):
     ''' Generate matrix for z-integral
     '''
     nG2 = len(q)
-    qi,qj = np.meshgrid(q,q,indexing='ij')
+    qi,qj = Gmeshgrid(q)
 
     # # Maa = \int exp(i q_i z)^* exp(i q_j z)
     # #     = [exp(i(q_j-q_i^*)t)-1]/i(q_j-q_i^*)
@@ -607,3 +607,12 @@ def Matrix_zintegral(q,thickness,shift=1e-10):
     tmp2 = np.vstack((Mab,Maa))
     Mt = np.hstack((tmp1,tmp2))
     return Mt
+
+def Gmeshgrid(x):
+    N = len(x)
+    qj = []
+    for i in range(N):
+        qj.append(x)
+    qj = np.array(qj)
+    qi = np.transpose(qj)
+    return qi,qj

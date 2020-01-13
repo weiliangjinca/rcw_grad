@@ -18,6 +18,11 @@ def vjp_maker_sqrt(ans, x):
 
 defvjp(sqrt_ag, vjp_maker_sqrt)
 
+def vjp_maker_meshgridx(ans, x):
+    def vjp(g):
+        return np.sum(g,axis=1)
+    return vjp
+
 '''=========== inv =========== '''
 
 inv_ag = primitive(np.linalg.inv)
