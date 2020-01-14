@@ -305,7 +305,7 @@ class RCWA_obj:
         return [fex,fey,fez],[fhx,fhy,fhz]
 
     def Solve_FieldOnGrid(self,which_layer,z_offset):
-        assert self.id_list[which_layer][0] == 1, 'Needs to be grids layer'
+        #assert self.id_list[which_layer][0] == 1, 'Needs to be grids layer'
 
         Nxy = self.GridLayer_Nxy_list[self.id_list[which_layer][3]]
         Nx = Nxy[0]
@@ -341,7 +341,7 @@ class RCWA_obj:
         # amplitdue at z = 0 of that layer
         ai, bi = self.GetAmplitudes(which_layer,0.)
         ab = np.hstack((ai,bi))
-        abMatrix = np.outer(np.conj(ab),ab)
+        abMatrix = np.outer(ab,np.conj(ab))
         
         Mt = Matrix_zintegral(q,self.thickness_list[which_layer])
         # overall
@@ -457,8 +457,8 @@ def SolveLayerEigensystem(omega,kx,ky,kp,ep2):
 def GetSMatrix(indi,indj,q_list,phi_list,kp_list,thickness_list):
     ''' S_ij: size 4n*4n
     '''
-    assert type(indi) == int, 'layer index i must be integar'
-    assert type(indj) == int, 'layer index j must be integar'
+    #assert type(indi) == int, 'layer index i must be integar'
+    #assert type(indj) == int, 'layer index j must be integar'
     
     nG2 = len(q_list[0])
     S11 = np.eye(nG2,dtype=complex)
@@ -530,7 +530,6 @@ def SolveInterior(which_layer,a0,bN,q_list,phi_list,kp_list,thickness_list):
     Given a0, bN, solve for ai, bi
     Layer numbering starts from 0
     '''
-
     Nlayer = len(thickness_list) # total number of layers
     nG2 = len(q_list[0])
     
