@@ -1,6 +1,6 @@
-This code is modified from Victor Liu's S4, which is implemented in
-C. It's now a python (v2.7) code with AUTOGRAD supported.  Most
-features in S4's rcwa.cpp are implemented.
+This code is modified from Victor Liu's S4 that was implemented in
+C. It's now a python (works on both v2.7 and v3) code with AUTOGRAD
+supported.  Most features in S4's rcwa.cpp are implemented.
 
 Required package:
 -- mpi4py for parallel
