@@ -490,7 +490,7 @@ def GetSMatrix(indi,indj,q_list,phi_list,kp_list,thickness_list):
         T12 = 0.5*(Q-P)
 
         # phase
-	d1 = np.diag(np.exp(1j*q_list[l]*thickness_list[l]))
+        d1 = np.diag(np.exp(1j*q_list[l]*thickness_list[l]))
         d2 = np.diag(np.exp(1j*q_list[lp1]*thickness_list[lp1]))
 
         # S11 = inv(T11-d1*S12o*T12)*d1*S11o

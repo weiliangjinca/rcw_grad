@@ -121,7 +121,7 @@ def Gsel_circular(nG, Lk1, Lk2):
     tol = 1e-10*max(u**2,v**2)
     for i in range(nGtmp,-1,-1):
         if np.abs(Gl2[i]-Gl2[i-1])>tol:
-	    break;
+            break;
     nG = i
     
     # final G
