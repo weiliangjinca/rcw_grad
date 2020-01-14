@@ -345,7 +345,7 @@ class RCWA_obj:
         
         Mt = Matrix_zintegral(q,self.thickness_list[which_layer])
         # overall
-        abM = abMatrix * Mt
+        abM = abMatrix * np.conj(Mt)
 
         # F matrix
         Faxy = np.dot(np.dot(kp,phi), np.diag(1./self.omega/q))
