@@ -7,7 +7,7 @@ size = comm.Get_size()
 rank = comm.Get_rank()
 
 class nlopt_opt:
-    def __init__(self,ndof,lb,ub,maxeval,xtol,filename,savefile_N):
+    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,info=None):
         '''
         savefile_N: output dof as file every such number, with filename
         '''
@@ -18,11 +18,12 @@ class nlopt_opt:
         opt.set_lower_bounds(lbn)
         opt.set_upper_bounds(ubn)
         opt.set_maxeval(maxeval)
-        opt.set_xtol_rel(xtol)
+        opt.set_ftol_rel(ftol)
         self.opt = opt
 
         self.filename = filename
         self.savefile_N = savefile_N
+        self.info = info
         self.ndof = ndof
         self.ctrl = 0
 
@@ -36,7 +37,7 @@ class nlopt_opt:
             if init_type == 'rand':
                 init = np.random.random(self.ndof)
             elif init_type == 'vac':
-                init = np.zeros(self.ndof)
+                init = np.zeros(self.ndof)+1e-5*np.random.random(self.ndof)
             elif init_type == 'one':
                 init = np.ones(self.ndof)
             else:
@@ -49,7 +50,10 @@ class nlopt_opt:
             gradn[:] = gn
 
             if 'autograd' not in str(type(val)) and rank == 0:
-                print self.ctrl,val
+                print self.ctrl,'val = ',val
+                if self.info[0] == 'obj':
+                    R = self.info[1](dof,val)
+                    print '   (R,V) = ',R
             
                 if self.savefile_N>0 and npf.mod(self.ctrl,self.savefile_N) == 0:
                     npf.savetxt(self.filename+'dof'+str(self.ctrl)+'.txt', dof)
@@ -64,6 +68,10 @@ class nlopt_opt:
 
                 if 'autograd' not in str(type(val)) and rank == 0:
                     print self.ctrl,'cons = ',val
+
+                    if self.info[0] == 'cons':
+                        R = self.info[1](dof,val)
+                        print '   (R,V) = ',R
 
                 return val-constraint[1]
 
