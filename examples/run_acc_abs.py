@@ -8,22 +8,34 @@ import numpy as npf
 
 import use_autograd
 use_autograd.use = 1
-import rcwa, mpi_nlopt
+import rcwa
+from mpi_nlopt import nlopt_opt,b_filter,f_symmetry
 from fft_funs import get_conv
 c0 = 299792458.
 
 # input parameters
-Qabs = 1e4
-init_type = './DATA/acc_absSilicon_nG101_Pmicron3.0_tnm150.0_Nf20_Nx50_Ny50_Q10.0_dof360.txt'
+Qabs = 20.
+init_type = 'vac'
 material = 'Silicon'
 
+bproj = 0.
+xsym = 1
+ysym = 1
 nG = 101
 Nf = 20
-Nx = 50
-Ny = 50 
+Mx = 50
+My = 50 
+if xsym == 1:
+    Nx = Mx*2
+else:
+    Nx=Mx
+if ysym == 1:
+    Ny = My*2
+else:
+    Ny=My
 thickness = 150e-9
 Period = 3e-6
-c_abs = 4.
+c_abs = 10.
 
 lam0 = 1.2e-6
 if material == 'Silicon':
@@ -43,7 +55,7 @@ laserP = 1e10
 area = 10
 final_v = 0.2
 
-filename = './DATA/acc_abs'+material+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
+filename = './DATA/acc_abs'+material+'_sym'+str(xsym)+str(ysym)+'_cons'+str(c_abs)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
 
 # doppler shift
 v = np.linspace(0,final_v*c0,Nf)
@@ -75,9 +87,11 @@ thick1 = 1.
 thick2 = thickness/lam0
 thick3 = 1.
 
-def accelerate_D(dof,ctrl):
+def accelerate_D(dofold,ctrl):
     ''' ctrl: ctrl's frequency calculation
     '''
+    df = f_symmetry(dofold,Mx,My,xsym,ysym)
+    dof = b_filter(df,bproj)
     mT = mload + thickness*area*density*np.mean(dof)
 
     freqcmp = freq_list[ctrl]*(1+1j/2/Qabs)
@@ -99,15 +113,20 @@ def accelerate_D(dof,ctrl):
         integrand = 0.5*integrand
     return integrand
 
-def infoR(dof,val):
+def infoR(dofold,val):
+    df = f_symmetry(dofold,Mx,My,xsym,ysym)
+    dof = b_filter(df,bproj)
     mT = mload + thickness*area*density*np.mean(dof)
     F = np.mean(gamma*v/(1-v/c0)**2)
     R = 1./(1e9*val*2*laserP*area/c0/mT/F/v[-1])
     return (R,np.mean(dof))
 
-def p_abs(dof,ctrl):
+def p_abs(dofold,ctrl):
     ''' ctrl: ctrl's frequency calculation
     '''
+    df = f_symmetry(dofold,Mx,My,xsym,ysym)
+    dof = b_filter(df,bproj)
+
     freqcmp = freq_list[ctrl]*(1+1j/2/Qabs)
     obj = rcwa.RCWA_obj(nG,L1,L2,freqcmp,theta,phi,verbose=0)
     obj.Add_LayerUniform(thick1,epsuniform1)
@@ -128,16 +147,17 @@ def p_abs(dof,ctrl):
     return integrand
 
 # nlopt setup
-ndof = Nx*Ny
+ndof = Mx*My
 
 ismax = 0 # 0 for minimization
 lb = 0.
 ub = 1.
-maxeval = 1000
+maxeval = 500
 ftol = 1e-10
 savefile_N = 10
 
-nopt = mpi_nlopt.nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,info=['cons',infoR])
-#x = nopt.fun_opt(ismax,Nf,accelerate_D,init_type)
-x = nopt.fun_opt(ismax,Nf,p_abs,init_type,constraint=[accelerate_D,c_abs])
+obj = [p_abs,Nf]
+constraint=[[accelerate_D,c_abs],Nf]
+nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['cons','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
+x = nopt.fun_opt(ismax,obj,init_type,constraint=constraint)
 

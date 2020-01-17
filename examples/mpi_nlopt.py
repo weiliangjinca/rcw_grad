@@ -7,7 +7,7 @@ size = comm.Get_size()
 rank = comm.Get_rank()
 
 class nlopt_opt:
-    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,info=None):
+    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,bproj=0.,xsym=0,ysym=0,info=None):
         '''
         savefile_N: output dof as file every such number, with filename
         '''
@@ -21,16 +21,22 @@ class nlopt_opt:
         opt.set_ftol_rel(ftol)
         self.opt = opt
 
+        self.Mx = Mx
+        self.My = My
         self.filename = filename
         self.savefile_N = savefile_N
         self.info = info
         self.ndof = ndof
         self.ctrl = 0
+        self.bproj = bproj
+        self.xsym = xsym
+        self.ysym = ysym
 
-    def fun_opt(self,ismax,N,fun,init_type,constraint=None):
+    def fun_opt(self,ismax,fun,init_type,constraint=None):
         '''
-        fun(dof,ctrl): function that returns integrand at ctrl's frequency
-        N: number of parallel frequency computations
+        fun[0]:fun(dof,ctrl): function that returns integrand at ctrl's frequency
+        fun[1]:N: number of parallel frequency computations
+        constraint=[[cons_fun,cons_max],N]
         '''
         init = []
         if rank == 0:
@@ -46,34 +52,38 @@ class nlopt_opt:
         init = comm.bcast(init)
 
         def fun_nlopt(dof,gradn):
-            val,gn = fun_mpi(dof,fun,N)
+            val,gn = fun_mpi(dof,fun[0],fun[1])
             gradn[:] = gn
 
             if 'autograd' not in str(type(val)) and rank == 0:
                 print self.ctrl,'val = ',val
                 if self.info[0] == 'obj':
-                    R = self.info[1](dof,val)
-                    print '   (R,V) = ',R
+                    R = self.info[2](dof,val)
+                    print '   ',self.info[1],R
             
                 if self.savefile_N>0 and npf.mod(self.ctrl,self.savefile_N) == 0:
                     npf.savetxt(self.filename+'dof'+str(self.ctrl)+'.txt', dof)
+                    if self.bproj>0 or self.xsym==1 or self.ysym==1:
+                        df = f_symmetry(dof,self.Mx,self.My,self.xsym,self.ysym)
+                        dofnew = b_filter(df,self.bproj)
+                        npf.savetxt(self.filename+'doftrans'+str(self.ctrl)+'.txt', dofnew)
 
             self.ctrl += 1
             return val
 
         if constraint != None:
             def fun_cons(dof,gradn):
-                val,gn = fun_mpi(dof,constraint[0],N)
+                val,gn = fun_mpi(dof,constraint[0][0],constraint[1])
                 gradn[:] = gn
 
                 if 'autograd' not in str(type(val)) and rank == 0:
                     print self.ctrl,'cons = ',val
 
                     if self.info[0] == 'cons':
-                        R = self.info[1](dof,val)
-                        print '   (R,V) = ',R
+                        R = self.info[2](dof,val)
+                        print '   ',self.info[1],R
 
-                return val-constraint[1]
+                return val-constraint[0][1]
 
             self.opt.add_inequality_constraint(fun_cons, 1e-8)
 
@@ -85,7 +95,19 @@ class nlopt_opt:
         x = self.opt.optimize(init)
         return x
 
+def b_filter(dof,bproj):
+    eta = 0.5
+    dofnew = np.where(dof<=eta,eta*(np.exp(-bproj*(1-dof/eta))-(1-dof/eta)*np.exp(-bproj)),(1-eta)*(1-np.exp(-bproj*(dof-eta)/(1-eta)) + (dof - eta)/(1-eta) * np.exp(-bproj)) + eta)
+    return dofnew
 
+def f_symmetry(dof,Mx,My,xsym,ysym):
+    df = np.reshape(dof,(Mx,My))
+    if xsym == 1:
+        df = np.hstack((df,np.fliplr(df)))
+    if ysym == 1:
+        df = np.vstack((df,np.flipud(df)))
+    return df.flatten()
+        
 def fun_mpi(dof,fun,N):
     '''mpi parallization for fun(dof,ctrl), ctrl is the numbering of ctrl's frequency calculation
     N calculations in total
