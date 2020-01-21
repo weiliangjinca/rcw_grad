@@ -14,14 +14,15 @@ from fft_funs import get_conv
 c0 = 299792458.
 
 # input parameters
-Qabs = 20.
+Qabs = 10.
+c_abs = -10.
+nG = 101
 init_type = 'vac'
-material = 'Silicon'
+material = 'Silica'
 
 bproj = 0.
 xsym = 1
 ysym = 1
-nG = 101
 Nf = 20
 Mx = 50
 My = 50 
@@ -33,14 +34,16 @@ if ysym == 1:
     Ny = My*2
 else:
     Ny=My
-thickness = 150e-9
-Period = 3e-6
-c_abs = 10.
+thickness = 200e-9
+Period = 5e-6
 
 lam0 = 1.2e-6
 if material == 'Silicon':
     density = 2.329e3
     epsdiff = 11.3
+elif material == 'Silica':
+    epsdiff = 1.45**2-1
+    density = 2.65e3
 elif material == 'test':
     density = 2.329e3
     epsdiff = 11.3+1j
@@ -55,7 +58,10 @@ laserP = 1e10
 area = 10
 final_v = 0.2
 
-filename = './DATA/acc_abs'+material+'_sym'+str(xsym)+str(ysym)+'_cons'+str(c_abs)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
+if c_abs>0:
+    filename = './DATA/acc_abs'+material+'_sym'+str(xsym)+str(ysym)+'_cons'+str(c_abs)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
+else:
+    filename = './DATA/acc_'+material+'_sym'+str(xsym)+str(ysym)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
 
 # doppler shift
 v = np.linspace(0,final_v*c0,Nf)
@@ -154,10 +160,15 @@ lb = 0.
 ub = 1.
 maxeval = 500
 ftol = 1e-10
-savefile_N = 10
+savefile_N = 5
 
-obj = [p_abs,Nf]
-constraint=[[accelerate_D,c_abs],Nf]
-nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['cons','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
-x = nopt.fun_opt(ismax,obj,init_type,constraint=constraint)
+if c_abs>0:
+    obj = [p_abs,Nf]
+    constraint=[[accelerate_D,c_abs],Nf]
+    nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['cons','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
+    x = nopt.fun_opt(ismax,obj,init_type,constraint=constraint)
+else:
+    obj=[accelerate_D,Nf]
+    nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['obj','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
+    x = nopt.fun_opt(ismax,obj,init_type)
 
