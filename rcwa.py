@@ -333,19 +333,20 @@ class RCWA_obj:
         kp = self.kp_list[which_layer]
         q = self.q_list[which_layer]
         phi = self.phi_list[which_layer]
+
         if self.id_list[which_layer][0] == 0:
             epinv = 1. / self.Uniform_ep_list[self.id_list[which_layer][2]]
         else:
             epinv = self.Patterned_epinv_list[self.id_list[which_layer][2]]
 
-        # amplitdue at z = 0 of that layer
-        ai, bi = self.GetAmplitudes(which_layer,0.)
+        # un-translated amplitdue
+        ai, bi = SolveInterior(which_layer,self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
         ab = np.hstack((ai,bi))
         abMatrix = np.outer(ab,np.conj(ab))
         
         Mt = Matrix_zintegral(q,self.thickness_list[which_layer])
         # overall
-        abM = abMatrix * np.conj(Mt)
+        abM = abMatrix * Mt
 
         # F matrix
         Faxy = np.dot(np.dot(kp,phi), np.diag(1./self.omega/q))
@@ -370,7 +371,7 @@ class RCWA_obj:
         if normalize == 1:
             val = val*self.normalization
         return val
-
+        
     def Solve_ZStressTensorIntegral(self,which_layer):
         '''
         returns 2F_x,2F_y,2F_z, integrated over z-plane
@@ -573,7 +574,7 @@ def GetZPoyntingFlux(ai,bi,omega,kp,phi,q):
     return forward, backward
     #return np.real(forward), np.real(backward)
 
-def Matrix_zintegral(q,thickness,shift=1e-10):
+def Matrix_zintegral(q,thickness,shift=1e-12):
     ''' Generate matrix for z-integral
     '''
     nG2 = len(q)
@@ -599,8 +600,8 @@ def Matrix_zintegral(q,thickness,shift=1e-10):
     #Maa = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij/np.pi)
 
     qij2 = qj+np.conj(qi)
-    Mab = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij2/np.pi)
-    #Mab = (np.exp(1j*qj*thickness)-np.exp(-1j*np.conj(qi)*thickness))/1j/(qj+np.conj(qi))
+    #Mab = thickness * np.exp(0.5j*thickness*qij) * np.sinc(0.5*thickness*qij2/np.pi)
+    Mab = (np.exp(1j*qj*thickness)-np.exp(-1j*np.conj(qi)*thickness))/1j/qij2
 
     tmp1 = np.vstack((Maa,Mab))
     tmp2 = np.vstack((Mab,Maa))
