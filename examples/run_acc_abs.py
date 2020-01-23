@@ -15,10 +15,13 @@ c0 = 299792458.
 
 # input parameters
 Qabs = 10.
-c_abs = -10.
+c_abs = 20.
 nG = 101
 init_type = 'vac'
-material = 'Silica'
+material = 'Silicon'
+thickness = 150e-9
+Period = 3e-6
+epsimag = 6.6979e-07
 
 bproj = 0.
 xsym = 1
@@ -34,8 +37,6 @@ if ysym == 1:
     Ny = My*2
 else:
     Ny=My
-thickness = 200e-9
-Period = 5e-6
 
 lam0 = 1.2e-6
 if material == 'Silicon':
@@ -56,7 +57,7 @@ else:
 mload = 1e-4
 laserP = 1e10
 area = 10
-final_v = 0.2
+final_v = .2
 
 if c_abs>0:
     filename = './DATA/acc_abs'+material+'_sym'+str(xsym)+str(ysym)+'_cons'+str(c_abs)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
@@ -145,12 +146,13 @@ def p_abs(dofold,ctrl):
     Mv = get_conv(1./Nx/Ny,dof.reshape((Nx,Ny)),obj.G)
     val = obj.Volume_integral(1,Mv,Mv,Mv,normalize=1)
 
-    integrand = np.real(val)/Nf
+    integrand = np.real(val)*np.real(obj.omega)*laserP*epsimag/Nf
 
     # trapz rule for even sampling
     if ctrl == 0 or ctrl == Nf-1:
         integrand = 0.5*integrand
     return integrand
+
 
 # nlopt setup
 ndof = Mx*My
