@@ -149,20 +149,27 @@ class RCWA_obj:
                 self.q_list.append(None)
                 self.phi_list.append(None)
                 
-    def MakeExcitationPlanewave(self,p_amp,p_phase,s_amp,s_phase,order = 0):
+    def MakeExcitationPlanewave(self,p_amp,p_phase,s_amp,s_phase,order = 0, direction = 'forward'):
         '''
         Front incidence
         '''
+        self.direction = direction
         theta = self.theta
         phi = self.phi
         a0 = np.zeros(2*self.nG,dtype=complex)
         bN = np.zeros(2*self.nG,dtype=complex)
-
-        a0[order] = -s_amp*np.cos(theta)*np.cos(phi)*np.exp(1j*s_phase) \
-            -p_amp*np.sin(phi)*np.exp(1j*p_phase)
+        if direction == 'forward':
+            a0[order] = -s_amp*np.cos(theta)*np.cos(phi)*np.exp(1j*s_phase) \
+                        -p_amp*np.sin(phi)*np.exp(1j*p_phase)
         
-        a0[order+self.nG] = -s_amp*np.cos(theta)*np.sin(phi)*np.exp(1j*s_phase) \
-            +p_amp*np.cos(phi)*np.exp(1j*p_phase)
+            a0[order+self.nG] = -s_amp*np.cos(theta)*np.sin(phi)*np.exp(1j*s_phase) \
+                                +p_amp*np.cos(phi)*np.exp(1j*p_phase)
+        elif direction == 'backward':
+            bN[order] = -s_amp*np.cos(theta)*np.cos(phi)*np.exp(1j*s_phase) \
+                        -p_amp*np.sin(phi)*np.exp(1j*p_phase)
+        
+            bN[order+self.nG] = -s_amp*np.cos(theta)*np.sin(phi)*np.exp(1j*s_phase) \
+                                +p_amp*np.cos(phi)*np.exp(1j*p_phase)
         
         self.a0 = a0
         self.bN = bN
@@ -241,12 +248,15 @@ class RCWA_obj:
         if normalize = 1, it will be divided by n[0]*cos(theta)
         '''
         aN, b0 = SolveExterior(self.a0,self.bN,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
-
         fi,bi = GetZPoyntingFlux(self.a0,b0,self.omega,self.kp_list[0],self.phi_list[0],self.q_list[0])
         fe,be = GetZPoyntingFlux(aN,self.bN,self.omega,self.kp_list[-1],self.phi_list[-1],self.q_list[-1])
 
-        R = np.real(-bi)
-        T = np.real(fe)
+        if self.direction == 'forward':
+            R = np.real(-bi)
+            T = np.real(fe)
+        elif self.direction == 'backward':
+            R = np.real(fe)
+            T = np.real(-bi)
 
         if normalize == 1:
             R = R*self.normalization

@@ -14,8 +14,10 @@ from fft_funs import get_conv
 c0 = 299792458.
 
 # input parameters
-Qabs = 10.
-c_abs = 20.
+Job=1
+Qref = 20
+Qabs = 1e10
+c_abs = 10.
 nG = 101
 init_type = 'vac'
 material = 'Silicon'
@@ -60,9 +62,9 @@ area = 10
 final_v = .2
 
 if c_abs>0:
-    filename = './DATA/acc_abs'+material+'_sym'+str(xsym)+str(ysym)+'_cons'+str(c_abs)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
+    filename = './DATA/acc_abs'+material+'_sym'+str(xsym)+str(ysym)+'_cons'+str(c_abs)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qref)+'_'
 else:
-    filename = './DATA/acc_'+material+'_sym'+str(xsym)+str(ysym)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qabs)+'_'
+    filename = './DATA/acc_'+material+'_sym'+str(xsym)+str(ysym)+'_bproj'+str(bproj)+'_nG'+str(nG)+'_Pmicron'+str(Period*1e6)+'_tnm'+str(thickness*1e9)+'_Nf'+str(Nf)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Q'+str(Qref)+'_'
 
 # doppler shift
 v = np.linspace(0,final_v*c0,Nf)
@@ -101,7 +103,7 @@ def accelerate_D(dofold,ctrl):
     dof = b_filter(df,bproj)
     mT = mload + thickness*area*density*np.mean(dof)
 
-    freqcmp = freq_list[ctrl]*(1+1j/2/Qabs)
+    freqcmp = freq_list[ctrl]*(1+1j/2/Qref)
     obj = rcwa.RCWA_obj(nG,L1,L2,freqcmp,theta,phi,verbose=0)
     obj.Add_LayerUniform(thick1,epsuniform1)
     obj.Add_LayerGrid(thick2,epsdiff,epsbkg,Nx,Ny)
@@ -146,12 +148,10 @@ def p_abs(dofold,ctrl):
     Mv = get_conv(1./Nx/Ny,dof.reshape((Nx,Ny)),obj.G)
     val = obj.Volume_integral(1,Mv,Mv,Mv,normalize=1)
 
-    integrand = np.real(val)*np.real(obj.omega)*laserP*epsimag/Nf
+    val = np.real(val)*np.real(obj.omega)*laserP*epsimag
+    val = val * (1-v[ctrl]/c0)/(1+v[ctrl]/c0) # relativistic correction
 
-    # trapz rule for even sampling
-    if ctrl == 0 or ctrl == Nf-1:
-        integrand = 0.5*integrand
-    return integrand
+    return val
 
 
 # nlopt setup
@@ -164,13 +164,20 @@ maxeval = 500
 ftol = 1e-10
 savefile_N = 5
 
-if c_abs>0:
-    obj = [p_abs,Nf]
-    constraint=[[accelerate_D,c_abs],Nf]
-    nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['cons','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
-    x = nopt.fun_opt(ismax,obj,init_type,constraint=constraint)
-else:
-    obj=[accelerate_D,Nf]
-    nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['obj','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
-    x = nopt.fun_opt(ismax,obj,init_type)
+if Job == 0:
+    tmp = open(init_type,'r')
+    init = npf.loadtxt(tmp)
+    for i in range(Nf):
+        print p_abs(init,i)
+
+if Job == 1:
+    if c_abs>0:
+        obj = [p_abs,Nf,'logsumexp']
+        constraint=[[accelerate_D,c_abs],Nf,'sum']
+        nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['cons','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
+        x = nopt.fun_opt(ismax,obj,init_type,constraint=constraint)
+    else:
+        obj=[accelerate_D,Nf]
+        nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['obj','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
+        x = nopt.fun_opt(ismax,obj,init_type)
 

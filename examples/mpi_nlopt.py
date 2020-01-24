@@ -1,6 +1,7 @@
 from mpi4py import MPI
 import autograd.numpy as np
 from autograd import grad
+from scipy.special import logsumexp
 import nlopt, numpy as npf
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
@@ -36,7 +37,8 @@ class nlopt_opt:
         '''
         fun[0]:fun(dof,ctrl): function that returns integrand at ctrl's frequency
         fun[1]:N: number of parallel frequency computations
-        constraint=[[cons_fun,cons_max],N]
+        fun[2]:output_type
+        constraint=[[cons_fun,cons_max],N,output_type]
         '''
         init = []
         if rank == 0:
@@ -52,7 +54,7 @@ class nlopt_opt:
         init = comm.bcast(init)
 
         def fun_nlopt(dof,gradn):
-            val,gn = fun_mpi(dof,fun[0],fun[1])
+            val,gn = fun_mpi(dof,fun[0],fun[1],output=fun[2])
             gradn[:] = gn
 
             if 'autograd' not in str(type(val)) and rank == 0:
@@ -73,7 +75,7 @@ class nlopt_opt:
 
         if constraint != None:
             def fun_cons(dof,gradn):
-                val,gn = fun_mpi(dof,constraint[0][0],constraint[1])
+                val,gn = fun_mpi(dof,constraint[0][0],constraint[1],output=constraint[2])
                 gradn[:] = gn
 
                 if 'autograd' not in str(type(val)) and rank == 0:
@@ -91,7 +93,7 @@ class nlopt_opt:
             self.opt.set_max_objective(fun_nlopt)
         else:
             self.opt.set_min_objective(fun_nlopt)
-
+            
         x = self.opt.optimize(init)
         return x
 
@@ -108,7 +110,7 @@ def f_symmetry(dof,Mx,My,xsym,ysym):
         df = np.vstack((df,np.flipud(df)))
     return df.flatten()
         
-def fun_mpi(dof,fun,N):
+def fun_mpi(dof,fun,N,output='sum'):
     '''mpi parallization for fun(dof,ctrl), ctrl is the numbering of ctrl's frequency calculation
     N calculations in total
     returns the sum: sum_{ctrl=1 toN} fun(dof,ctrl)
@@ -148,8 +150,14 @@ def fun_mpi(dof,fun,N):
         # val_i = val_i[sindex,1]
         # g_i = g_i[sindex,1]
 
-        val = np.sum(val_i[:,1])
-        g = np.sum(g_i[:,1])
+        if output == 'sum':
+            val = np.sum(val_i[:,1])
+            g = np.sum(g_i[:,1])
+        elif output == 'logsumexp':
+            val = logsumexp(val_i[:,1])
+            g = np.zeros_like(g_i[0,1])
+            for i in range(N):
+                g += g_i[i,1]*np.exp(val_i[i,1]-val)
 
     val = comm.bcast(val)
     g = comm.bcast(g)
