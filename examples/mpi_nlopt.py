@@ -8,7 +8,7 @@ size = comm.Get_size()
 rank = comm.Get_rank()
 
 class nlopt_opt:
-    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,bproj=0.,xsym=0,ysym=0,info=None):
+    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,bproj=0.,xsym=0,ysym=0,info=[None]):
         '''
         savefile_N: output dof as file every such number, with filename
         '''
@@ -102,13 +102,16 @@ def b_filter(dof,bproj):
     dofnew = np.where(dof<=eta,eta*(np.exp(-bproj*(1-dof/eta))-(1-dof/eta)*np.exp(-bproj)),(1-eta)*(1-np.exp(-bproj*(dof-eta)/(1-eta)) + (dof - eta)/(1-eta) * np.exp(-bproj)) + eta)
     return dofnew
 
-def f_symmetry(dof,Mx,My,xsym,ysym):
-    df = np.reshape(dof,(Mx,My))
-    if xsym == 1:
-        df = np.hstack((df,np.fliplr(df)))
-    if ysym == 1:
-        df = np.vstack((df,np.flipud(df)))
-    return df.flatten()
+def f_symmetry(dof,Mx,My,xsym,ysym,Nlayer=1):
+    out = []
+    for i in range(Nlayer):
+        df = np.reshape(dof[i*Mx*My:(i+1)*Mx*My],(Mx,My))
+        if xsym == 1:
+            df = np.hstack((df,np.fliplr(df)))
+        if ysym == 1:
+            df = np.vstack((df,np.flipud(df)))
+        out.append(df.flatten())
+    return np.concatenate(np.array(out))
         
 def fun_mpi(dof,fun,N,output='sum'):
     '''mpi parallization for fun(dof,ctrl), ctrl is the numbering of ctrl's frequency calculation
