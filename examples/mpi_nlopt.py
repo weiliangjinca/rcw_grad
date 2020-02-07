@@ -73,7 +73,7 @@ class nlopt_opt:
             self.ctrl += 1
             return val
 
-        if constraint != None:
+        if constraint != None and type(constraint[1])!=list:
             def fun_cons(dof,gradn):
                 val,gn = fun_mpi(dof,constraint[0][0],constraint[1],output=constraint[2])
                 gradn[:] = gn
@@ -86,8 +86,37 @@ class nlopt_opt:
                         print '   ',self.info[1],R
 
                 return val-constraint[0][1]
-
             self.opt.add_inequality_constraint(fun_cons, 1e-8)
+
+        if constraint != None and type(constraint[1])=list:
+            def fun_cons1(dof,gradn):
+                val,gn = fun_mpi(dof,constraint[0][0][0],constraint[0][1],output=constraint[0][2])
+                gradn[:] = gn
+
+                if 'autograd' not in str(type(val)) and rank == 0:
+                    print self.ctrl,'cons = ',val
+
+                    if self.info[0] == 'cons1':
+                        R = self.info[2](dof,val)
+                        print '   ',self.info[1],R
+
+                return val-constraint[0][0][1]
+
+            def fun_cons2(dof,gradn):
+                val,gn = fun_mpi(dof,constraint[1][0][0],constraint[1][1],output=constraint[1][2])
+                gradn[:] = gn
+
+                if 'autograd' not in str(type(val)) and rank == 0:
+                    print self.ctrl,'cons = ',val
+
+                    if self.info[0] == 'cons2':
+                        R = self.info[2](dof,val)
+                        print '   ',self.info[1],R
+
+                return val-constraint[1][0][1]
+
+            self.opt.add_inequality_constraint(fun_cons1, 1e-8)
+            self.opt.add_inequality_constraint(fun_cons2, 1e-8)
 
         if ismax == 1:
             self.opt.set_max_objective(fun_nlopt)
@@ -112,7 +141,7 @@ def f_symmetry(dof,Mx,My,xsym,ysym,Nlayer=1):
             df = np.vstack((df,np.flipud(df)))
         out.append(df.flatten())
     return np.concatenate(np.array(out))
-        
+
 def fun_mpi(dof,fun,N,output='sum'):
     '''mpi parallization for fun(dof,ctrl), ctrl is the numbering of ctrl's frequency calculation
     N calculations in total
@@ -166,3 +195,13 @@ def fun_mpi(dof,fun,N,output='sum'):
     g = comm.bcast(g)
     return val,g
 
+def fun_ratio(dof,fun1,fun2,N1,N2,output1='sum',output2='sum'):
+    '''
+    y = fun1(x)/fun2(x)
+    '''
+    val1,grad1 = fun_mpi(dof,fun1,N1,output1)
+    val2,grad2 = fun_mpi(dof,fun2,N2,output2)
+    
+    val = val1/val2
+    grad = (grad1*val2-grad2*val1)/val2**2
+    return val,grad
