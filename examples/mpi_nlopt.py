@@ -88,7 +88,7 @@ class nlopt_opt:
                 return val-constraint[0][1]
             self.opt.add_inequality_constraint(fun_cons, 1e-8)
 
-        if constraint != None and type(constraint[1])=list:
+        if constraint != None and type(constraint[1])==list:
             def fun_cons1(dof,gradn):
                 val,gn = fun_mpi(dof,constraint[0][0][0],constraint[0][1],output=constraint[0][2])
                 gradn[:] = gn
