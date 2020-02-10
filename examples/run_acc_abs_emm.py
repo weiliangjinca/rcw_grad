@@ -248,6 +248,6 @@ savefile_N = 2
 
 obj = [emission_integrate,Ntotal,'sum']
 constraint=[[[accelerate_D,c_ref],Nf,'sum'],[[p_abs,c_abs],Nf,'logsumexp']]
-nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['cons1','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj)
+nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['cons1','  (R,V) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj,Nlayer=Nlayer)
 x = nopt.fun_opt(ismax,obj,init_type,constraint=constraint)
 

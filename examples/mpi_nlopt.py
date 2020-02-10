@@ -8,7 +8,7 @@ size = comm.Get_size()
 rank = comm.Get_rank()
 
 class nlopt_opt:
-    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,bproj=0.,xsym=0,ysym=0,info=[None]):
+    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,bproj=0.,xsym=0,ysym=0,info=[None],Nlayer=1):
         '''
         savefile_N: output dof as file every such number, with filename
         '''
@@ -32,6 +32,7 @@ class nlopt_opt:
         self.bproj = bproj
         self.xsym = xsym
         self.ysym = ysym
+        self.Nlayer = Nlayer
 
     def fun_opt(self,ismax,fun,init_type,constraint=None):
         '''
@@ -74,7 +75,7 @@ class nlopt_opt:
                 if self.savefile_N>0 and npf.mod(self.ctrl,self.savefile_N) == 0:
                     npf.savetxt(self.filename+'dof'+str(self.ctrl)+'.txt', dof)
                     if self.bproj>0 or self.xsym==1 or self.ysym==1:
-                        df = f_symmetry(dof,self.Mx,self.My,self.xsym,self.ysym)
+                        df = f_symmetry(dof,self.Mx,self.My,self.xsym,self.ysym,Nlayer=self.Nlayer)
                         dofnew = b_filter(df,self.bproj)
                         npf.savetxt(self.filename+'doftrans'+str(self.ctrl)+'.txt', dofnew)
 
