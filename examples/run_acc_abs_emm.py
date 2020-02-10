@@ -20,13 +20,13 @@ rank = comm.Get_rank()
 ##### input parameters
 Nlayer=2
 lam0=1.2e-6
-Qref = 20
+Qref = 1e10
 Qabs = 1e10
-c_ref = 30.
-c_abs = 1000.
-nG = 51
+c_ref = 15.
+c_abs = 60.
+nG = 101
 bproj = 0.
-init_type = 'vac'
+init_type = './LIB/acc_absSilicon_sym11_cons15.0_bproj10.0_nG501_Pmicron3.0_tnm150.0_Nf20_Nx100_Ny100_Q100000.0_dof45.txt'
 thickness = [150e-9,150e-9]
 materialL = ['silicon','silica']
 Period = 3e-6
@@ -38,7 +38,7 @@ My = 50
 T=625
 lamsT=35e-6
 lameT=7e-6
-NfT = 2
+NfT = 5
 NthetaT = 5
 NphiT = 5
 # pumping

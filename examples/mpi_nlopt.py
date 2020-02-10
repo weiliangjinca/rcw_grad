@@ -50,7 +50,15 @@ class nlopt_opt:
                 init = np.ones(self.ndof)
             else:
                 tmp = open(init_type,'r')
-                init = np.loadtxt(tmp)
+                initfile = np.loadtxt(tmp)
+
+                if len(initfile) == self.ndof:
+                    init = initfile
+                elif len(initfile) < self.ndof:
+                    init = np.zeros(self.ndof,dtype=float)
+                    init[:len(initfile)]=initfile
+                else:
+                    raise Exception('wrong initial vector size')
         init = comm.bcast(init)
 
         def fun_nlopt(dof,gradn):
@@ -122,7 +130,7 @@ class nlopt_opt:
             self.opt.set_max_objective(fun_nlopt)
         else:
             self.opt.set_min_objective(fun_nlopt)
-            
+
         x = self.opt.optimize(init)
         return x
 
