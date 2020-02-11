@@ -381,6 +381,71 @@ class RCWA_obj:
         if normalize == 1:
             val = val*self.normalization
         return val
+
+    def Volume_integralpart2(self,a0,bN,FMF,Mt, solveinside, normalize=0):
+        ai,bi = solveinside(a0,bN)
+        ab = np.hstack((ai,bi))
+        abMatrix = np.outer(ab,np.conj(ab))
+        abM = abMatrix * Mt        
+        val = np.trace(np.dot(abM,FMF))
+
+        if normalize == 1:
+            val = val*self.normalization
+        return val
+
+    def Volume_integralpart1(self,which_layer,Mx,My,Mz):
+        '''Mxyz is convolution matrix
+        This function computes 1/A\int_V Mx|Ex|^2+My|Ey|^2+Mz|Ez|^2
+        To be consistent with Poynting vector defintion here, the absorbed power will be just omega*output
+        '''
+
+        kp = self.kp_list[which_layer]
+        q = self.q_list[which_layer]
+        phi = self.phi_list[which_layer]
+
+        if self.id_list[which_layer][0] == 0:
+            epinv = 1. / self.Uniform_ep_list[self.id_list[which_layer][2]]
+        else:
+            epinv = self.Patterned_epinv_list[self.id_list[which_layer][2]]
+
+        # un-translated amplitdue
+        Nlayer = self.Layer_N
+        nG2 = len(q)
+    
+        S11, S12, S21, S22 = GetSMatrix(0,which_layer,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+        pS11, pS12, pS21, pS22 = GetSMatrix(which_layer,Nlayer-1,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+
+        # invS = inv(1-S12*pS21)
+        invS = inv(np.eye(nG2)-np.dot(S12,pS21))
+
+        def solveinside(a0,bN):
+            # ai = tmp * (S11 a0 + S12 pS22 bN)
+            ai = np.dot(invS,  np.dot(S11,a0)+np.dot(S12,np.dot(pS22,bN)))
+            # bi = pS21 ai + pS22 bN
+            bi = np.dot(pS21,ai) + np.dot(pS22,bN)
+            return ai,bi
+
+        Mt = Matrix_zintegral(q,self.thickness_list[which_layer])
+        # F matrix
+        Faxy = np.dot(np.dot(kp,phi), np.diag(1./self.omega/q))
+        Faz1 = 1./self.omega*np.dot(epinv,np.diag(self.ky))
+        Faz2 = -1./self.omega*np.dot(epinv,np.diag(self.kx))
+        Faz = np.dot(np.hstack((Faz1,Faz2)),phi)
+
+        tmp1 = np.vstack((Faxy,Faz))
+        tmp2 = np.vstack((-Faxy,Faz))
+        F = np.hstack((tmp1,tmp2))
+
+        # consider Mtotal
+        Mzeros = np.zeros_like(Mx)
+        Mtotal = np.vstack((np.hstack((Mx,Mzeros,Mzeros)),\
+                            np.hstack((Mzeros,My,Mzeros)),\
+                            np.hstack((Mzeros,Mzeros,Mz))))
+
+        # integral = Tr[ abMatrix * F^\dagger *  Matconv *F ] 
+        FMF = np.dot(np.dot(np.conj(np.transpose(F)),Mtotal),F)
+
+        return FMF,Mt, solveinside
         
     def Solve_ZStressTensorIntegral(self,which_layer):
         '''
