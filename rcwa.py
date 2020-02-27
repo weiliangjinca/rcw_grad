@@ -263,6 +263,49 @@ class RCWA_obj:
             T = T*self.normalization
         return R,T
 
+
+    def RT_Solvepart1(self):
+        '''
+        Reflection and transmission power computation
+        Returns 2R and 2T, following Victor's notation
+        Maybe because 2* makes S_z = 1 for H=1 in vacuum
+
+        if normalize = 1, it will be divided by n[0]*cos(theta)
+        '''
+
+        Nlayer = self.Layer_N
+        S11, S12, S21, S22 = GetSMatrix(0,Nlayer-1,self.q_list,self.phi_list,self.kp_list,self.thickness_list)
+        def fun(a0,bN):
+            aN = np.dot(S11,a0) + np.dot(S12,bN)
+            b0 = np.dot(S21,a0) + np.dot(S22,bN)
+            return aN,b0
+        return fun
+
+    def RT_Solvepart2(self,fun,normalize = 0):
+        '''
+        Reflection and transmission power computation
+        Returns 2R and 2T, following Victor's notation
+        Maybe because 2* makes S_z = 1 for H=1 in vacuum
+
+        if normalize = 1, it will be divided by n[0]*cos(theta)
+        '''
+
+        aN, b0 = fun(self.a0,self.bN)
+        fi,bi = GetZPoyntingFlux(self.a0,b0,self.omega,self.kp_list[0],self.phi_list[0],self.q_list[0])
+        fe,be = GetZPoyntingFlux(aN,self.bN,self.omega,self.kp_list[-1],self.phi_list[-1],self.q_list[-1])
+
+        if self.direction == 'forward':
+            R = np.real(-bi)
+            T = np.real(fe)
+        elif self.direction == 'backward':
+            R = np.real(fe)
+            T = np.real(-bi)
+
+        if normalize == 1:
+            R = R*self.normalization
+            T = T*self.normalization
+        return R,T        
+
     def GetAmplitudes(self,which_layer,z_offset):
         '''
         returns fourier amplitude
