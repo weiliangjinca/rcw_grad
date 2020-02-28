@@ -67,10 +67,10 @@ class nlopt_opt:
             gradn[:] = gn
 
             if 'autograd' not in str(type(val)) and rank == 0:
-                print self.ctrl,'val = ',val
+                print(self.ctrl,'val = ',val)
                 if self.info[0] == 'obj':
                     R = self.info[2](dof,val)
-                    print '   ',self.info[1],R
+                    print('   ',self.info[1],R)
             
                 if self.savefile_N>0 and npf.mod(self.ctrl,self.savefile_N) == 0:
                     npf.savetxt(self.filename+'dof'+str(self.ctrl)+'.txt', dof)
@@ -88,11 +88,11 @@ class nlopt_opt:
                 gradn[:] = gn
 
                 if 'autograd' not in str(type(val)) and rank == 0:
-                    print self.ctrl,'cons = ',val
+                    print(self.ctrl,'cons = ',val)
 
                     if self.info[0] == 'cons':
                         R = self.info[2](dof,val)
-                        print '   ',self.info[1],R
+                        print('   ',self.info[1],R)
 
                 return val-constraint[0][1]
             self.opt.add_inequality_constraint(fun_cons, 1e-8)
@@ -103,11 +103,11 @@ class nlopt_opt:
                 gradn[:] = gn
 
                 if 'autograd' not in str(type(val)) and rank == 0:
-                    print self.ctrl,'cons = ',val
+                    print(self.ctrl,'cons = ',val)
 
                     if self.info[0] == 'cons1':
                         R = self.info[2](dof,val)
-                        print '   ',self.info[1],R
+                        print('   ',self.info[1],R)
 
                 return val-constraint[0][0][1]
 
@@ -116,11 +116,11 @@ class nlopt_opt:
                 gradn[:] = gn
 
                 if 'autograd' not in str(type(val)) and rank == 0:
-                    print self.ctrl,'cons = ',val
+                    print(self.ctrl,'cons = ',val)
 
                     if self.info[0] == 'cons2':
                         R = self.info[2](dof,val)
-                        print '   ',self.info[1],R
+                        print('   ',self.info[1],R)
 
                 return val-constraint[1][0][1]
 
