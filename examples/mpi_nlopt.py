@@ -3,12 +3,13 @@ import autograd.numpy as np
 from autograd import grad
 from scipy.special import logsumexp
 import nlopt, numpy as npf
+import time
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
 
 class nlopt_opt:
-    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,bproj=0.,xsym=0,ysym=0,info=[None],Nlayer=1):
+    def __init__(self,ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,bproj=0.,xsym=0,ysym=0,info=[None],Nlayer=1,timing=1):
         '''
         savefile_N: output dof as file every such number, with filename
         '''
@@ -33,6 +34,7 @@ class nlopt_opt:
         self.xsym = xsym
         self.ysym = ysym
         self.Nlayer = Nlayer
+        self.timing = timing
 
     def fun_opt(self,ismax,fun,init_type,constraint=None):
         '''
@@ -63,11 +65,16 @@ class nlopt_opt:
         init = comm.bcast(init)
 
         def fun_nlopt(dof,gradn):
+            t1 = time.time()
             val,gn = fun_mpi(dof,fun[0],fun[1],output=fun[2])
             gradn[:] = gn
+            t2 = time.time()
 
             if 'autograd' not in str(type(val)) and rank == 0:
-                print(self.ctrl,'val = ',val)
+                if self.timing == 1:
+                    print(self.ctrl,'val = ',val,'time=',t2-t1)
+                else:
+                    print(self.ctrl,'val = ',val)
                 if self.info[0] == 'obj':
                     R = self.info[2](dof,val)
                     print('   ',self.info[1],R)
