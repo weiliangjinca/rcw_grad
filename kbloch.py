@@ -91,7 +91,7 @@ def Gsel_circular(nG, Lk1, Lk2):
     uv = np.dot(Lk1,Lk2)
     uxv = Lk1[0]*Lk2[1] - Lk1[1]*Lk2[0]
     circ_area = nG * uxv
-    circ_radius = np.floor(np.sqrt(circ_area/np.pi)) + u+v;
+    circ_radius = np.sqrt(circ_area/np.pi) + u+v;
 
     u_extent = 1+int(circ_radius/(u*np.sqrt(1.-uv**2/(u*v)**2)))
     v_extent = 1+int(circ_radius/(v*np.sqrt(1.-uv**2/(u*v)**2)))
