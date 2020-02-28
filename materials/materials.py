@@ -3,7 +3,7 @@ import numpy as np
 c0 = 299792458.
 eV2freq= 2.417989261097518e+14
 class silica:
-    def __init__(self,filename='silica_data'):
+    def __init__(self,filename='silica_data',epsimag = 0.):
         '''
         For fused quartz:
              dispersion (a-SiO2_llnl_cxro + a-SiO2_palik + Popova) from 1e-2 nm to 50 micron
@@ -16,6 +16,7 @@ class silica:
         self.lam = data[:,0]
         self.n = data[:,1]
         self.k = data[:,2]
+        self.epsimag = epsimag
 
     def epsilon(self,x,x_type='lambda'):
         xlam = converter2lam(x,x_type)
@@ -23,10 +24,12 @@ class silica:
         nout = np.interp(xlam,self.lam,self.n)
         kout = np.interp(xlam,self.lam,self.k)
         ep = (nout + 1j*kout)**2
+        if np.imag(ep)<self.epsimag:
+            ep = np.real(ep) + 1j * self.epsimag
         return ep
 
 class silicon:
-    def __init__(self,filename='si_data'):
+    def __init__(self,filename='si_data',epsimag = 0.):
         '''
         For crystalline silicon:
              dispersion (Si_llnl_cxro + Si_palik) from 1.2e-2 nm to 333 micron
@@ -39,6 +42,7 @@ class silicon:
         self.lam = data[:,0]/1e10
         self.n = data[:,1]
         self.k = data[:,2]
+        self.epsimag = epsimag
 
     def epsilon(self,x,x_type='lambda'):
         xlam = converter2lam(x,x_type)
@@ -46,6 +50,8 @@ class silicon:
         nout = np.interp(xlam,self.lam,self.n)
         kout = np.interp(xlam,self.lam,self.k)
         ep = (nout + 1j*kout)**2
+        if np.imag(ep)<self.epsimag:
+            ep = np.real(ep) + 1j * self.epsimag
         return ep    
 
 class gold:

@@ -184,6 +184,8 @@ def fun_mpi(dof,fun,N,output='sum'):
 
     # summation
     if rank == 0:
+        val_i = [x for x in val_i if x]
+        g_i = [x for x in g_i if x]
         val_i = npf.concatenate(npf.array(val_i))
         g_i = npf.concatenate(npf.array(g_i))
         # sindex = val_i[:,0].argsort()
