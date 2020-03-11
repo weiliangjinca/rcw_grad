@@ -86,6 +86,25 @@ def get_ifft(Nx,Ny,s_in,G):
     s_out = np.fft.ifft2(s0)/dN
     return s_out
 
+# def get_ifft(Nx,Ny,s_in,G):
+#     '''
+#     Reconstruct real-space fields
+#     '''
+#     dN = 1./Nx/Ny
+#     nG,_ = G.shape
+
+#     s0 = np.zeros((Nx,Ny),dtype=complex)
+#     for i in range(nG):
+#         x = G[i,0]
+#         y = G[i,1]
+#         #if x>-Nx/2 and x<Nx/2 and y>-Ny/2 and y<Ny/2
+#         stmp = np.zeros((Nx,Ny),dtype=complex)
+#         stmp[x,y] = 1.
+#         s0 = s0 + s_in[i]*stmp
+
+#     s_out = np.fft.ifft2(s0)/dN
+#     return s_out
+
 # def circle_in_square_fft(Lx,Lk1,Lk2,radius,epbkg,epdiff,G):
 #     from scipy.special import j1
 #     nG,_ = G.shape
