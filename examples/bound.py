@@ -1,15 +1,15 @@
-import os, time
-Nthread = 5
-os.environ["OMP_NUM_THREADS"] = str(Nthread) # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = str(Nthread) # export OPENBLAS_NUM_THREADS=1
-os.environ["MKL_NUM_THREADS"] = str(Nthread) # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = str(Nthread) # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = str(Nthread) # export NUMEXPR_NUM_THREADS=1
+import os, time, argparse
+# Nthread = 5
+# os.environ["OMP_NUM_THREADS"] = str(Nthread) # export OMP_NUM_THREADS=1
+# os.environ["OPENBLAS_NUM_THREADS"] = str(Nthread) # export OPENBLAS_NUM_THREADS=1
+# os.environ["MKL_NUM_THREADS"] = str(Nthread) # export MKL_NUM_THREADS=1
+# os.environ["VECLIB_MAXIMUM_THREADS"] = str(Nthread) # export VECLIB_MAXIMUM_THREADS=1
+# os.environ["NUMEXPR_NUM_THREADS"] = str(Nthread) # export NUMEXPR_NUM_THREADS=1
 
 import sys
-sys.path.append('/home/weiliang/Local/rcw_grad/')
-sys.path.append('/home/weiliang/Local/rcw_grad/materials/')
-sys.path.append('/home/weiliang/Local/rcw_grad/examples/')
+sys.path.append('/home1/06500/tg857995/rcw_grad')
+sys.path.append('/home1/06500/tg857995/rcw_grad/materials/')
+sys.path.append('/home1/06500/tg857995/rcw_grad/examples/')
 
 import autograd.numpy as np
 from autograd import grad
@@ -22,17 +22,34 @@ import rcwa
 import materials, cons
 from fft_funs import get_conv
 
-lam0=0.8e-6
-freq = 1.
-gold = materials.gold()
-silicon = materials.silicon()
-Nlayer=3
-thick = 5e-2
-Lx = 2
+parser = argparse.ArgumentParser()
+# solvers
+parser.add_argument('-nG', action="store", type=int, default=101)
+parser.add_argument('-Nlayer', action="store", type=int, default=1)
+parser.add_argument('-thick', action="store", type=float, default=1)
+parser.add_argument('-Lx', action="store", type=float, default=1)
+parser.add_argument('-bproj', action="store", type=float, default=0)
+parser.add_argument('-epreal', action="store", type=float, default=16)
+parser.add_argument('-epimag', action="store", type=float, default=0.1)
+parser.add_argument('-init_type', action="store", type=str, default='vac')
+
+r, unknown = parser.parse_known_args(sys.argv[1:])
+for arg in vars(r):
+    print(arg," is ",getattr(r,arg))
+        
+epsdiff = r.epreal+r.epimag*1j
+nG = r.nG 
+bproj = r.bproj
+Nlayer=r.Nlayer
+thick = r.thick
+Lx = r.Lx
 Ly = Lx
+freq = 1.
 Mx = 100
 My = 100
 Qabs = 1e20
+
+name_ = './DATA/abs_N'+str(Nlayer)+'_nG'+str(nG)+'_t'+str(thick)+'_L'+str(Lx)+'_epr'+str(r.epreal)+'_epi'+str(r.epimag)+'_b'+str(bproj)
 
 ndof = Mx*My*Nlayer
 thickness = [thick/Nlayer]*Nlayer
@@ -41,10 +58,19 @@ L1 = [Lx,0.]
 L2 = [0.,Ly]
 epsuniform = 1.
 epsbkg = 1.
-epsdiff = silicon.epsilon(lam0/freq,'lambda')-epsbkg
 
 thick0 = 1.
 thickN = 1.
+
+if r.init_type == 'rand':
+    init = np.random.random(ndof)
+elif r.init_type == 'vac':
+    init = np.zeros(ndof)+1e-3*np.random.random(ndof)
+elif r.init_type == 'one':
+    init = np.ones(ndof)
+else:
+    tmp = open(init_type,'r')
+    init = np.loadtxt(tmp)
 
 def fun_owen(ep):
     sigma = np.imag(ep)/np.abs(ep-1)**2
@@ -98,9 +124,11 @@ def p_abs(dofold,nG,bproj,method='RT'):
         R,T = obj.RT_Solve(normalize=1) 
         vals = 1-R-T
     t2 = time.time()
+    
     if 'autograd' not in str(type(vals)):
         global ctrl
-        np.savetxt('dof.txt',dof)
+        if npf.mod(ctrl,2) == 0:
+            npf.savetxt(name_+'_dof'+str(ctrl)+'.txt', dof)        
         if ctrl<=1:
             print(t2-t1)
         if method == 'V':
@@ -111,8 +139,6 @@ def p_abs(dofold,nG,bproj,method='RT'):
         ctrl +=1
     return vals
 
-nG = 201
-bproj = 0.
 method = 'RT'
 fun = lambda dof: p_abs(dof,nG,bproj,method = method)
 grad_fun = grad(fun)
@@ -120,11 +146,6 @@ def fun_nlopt(dof,gradn):
     gradn[:] = grad_fun(dof)
     return fun(dof)
 
-#init = np.random.random(ndof)
-init = np.zeros(ndof)+1e-3*np.random.random(ndof)
-#init = np.ones(ndof)
-tmp = open('./dof.txt','r')
-init = np.loadtxt(tmp)
 lb=np.zeros(ndof,dtype=float)
 ub=np.ones(ndof,dtype=float)
 
