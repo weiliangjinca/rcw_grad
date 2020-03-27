@@ -12,6 +12,7 @@ sys.path.append(rpath+'examples/')
 sys.path.append(rpath+'materials/')
 
 import autograd.numpy as np
+from autograd.scipy.special import logsumexp
 import numpy as npf
 from mpi4py import MPI
 
@@ -157,11 +158,15 @@ def accelerate_D(dofold,ctrl):
     theta = r.angle
     obj,dof,epsdiff = rcwa_assembly(dofold,freqcmp,theta,phi,planewave)
     R,_ = obj.RT_Solve(normalize=1)
+    
     if r.polarization == 'ps' or r.polarization == 'sp':
         planewave={'p_amp':1,'s_amp':0,'p_phase':0,'s_phase':0}
         obj.MakeExcitationPlanewave(planewave['p_amp'],planewave['p_phase'],planewave['s_amp'],planewave['s_phase'],order = 0)
         R2,_ = obj.RT_Solve(normalize=1)
-        R = 100./np.log(np.sum(np.exp(np.array([100./R,100./R2]))))
+
+        # the minimal of reflection
+        Inc = 500.
+        R = Inc/logsumexp(Inc/np.array([R,R2]))
 
     # mass
     rho = mload
@@ -205,7 +210,7 @@ savefile_N = 2
 ismax = 0 # 0 for minimization
 obj = [accelerate_D,Nf,'sum']
 
-filename = './DATA/acc'+'_inv'+str(r.inverse)+'_N'+str(Nlayer)+'_sym'+str(xsym)+str(ysym)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Pmicron'+str(Period*1e6)+'_mload'+str(r.mload)+'_Nf'+str(Nf)+'_Qf'+str(Qref)+'_angle'+str(r.angle)+'_nG'+str(nG)+'_bproj'+str(bproj)+'_mload'+str(mload*1e4)+'_mp'+str(r.mpower)+'_'
+filename = './DATA/acc'+'_inv'+str(r.inverse)+'_N'+str(Nlayer)+'_'+r.polarization+'_sym'+str(xsym)+str(ysym)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Pmicron'+str(Period*1e6)+'_mload'+str(r.mload)+'_Nf'+str(Nf)+'_Qf'+str(Qref)+'_angle'+str(r.angle)+'_nG'+str(nG)+'_bproj'+str(bproj)+'_mload'+str(mload*1e4)+'_mp'+str(r.mpower)+'_'
 for i in range(Nlayer):
     filename += materialL[i]+'_tnm'+str(thickness[i]*1e9)+'_'
 
