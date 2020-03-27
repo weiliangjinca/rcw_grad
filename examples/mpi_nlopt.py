@@ -36,7 +36,21 @@ class nlopt_opt:
         self.Nlayer = Nlayer
         self.timing = timing
 
-    def fun_opt(self,ismax,fun,init_type,constraint=None):
+    def fun_testgrad(self,fun,init_type,dx,ind):
+        init = []
+        if rank == 0:
+            init = get_init(init_type,self.ndof)
+        init = comm.bcast(init)
+
+        val1,gn1 = fun_mpi(init,fun[0],fun[1],output=fun[2])
+        
+        init[ind] += dx        
+        val2,gn2 = fun_mpi(init,fun[0],fun[1],output=fun[2])
+
+        if rank == 0:
+            print('Finite difference = ',(val2-val1)/dx, ', Auto = ',(gn1[ind]+gn2[ind])/2)        
+        
+    def fun_opt(self,ismax,fun,init_type,constraint=None,inverse=0):
         '''
         fun[0]:fun(dof,ctrl): function that returns integrand at ctrl's frequency
         fun[1]:N: number of parallel frequency computations
@@ -45,36 +59,25 @@ class nlopt_opt:
         '''
         init = []
         if rank == 0:
-            if init_type == 'rand':
-                init = np.random.random(self.ndof)
-            elif init_type == 'vac':
-                init = np.zeros(self.ndof)+1e-5*np.random.random(self.ndof)
-            elif init_type == 'one':
-                init = np.ones(self.ndof)
-            else:
-                tmp = open(init_type,'r')
-                initfile = np.loadtxt(tmp)
-
-                if len(initfile) == self.ndof:
-                    init = initfile
-                elif len(initfile) < self.ndof:
-                    init = np.zeros(self.ndof,dtype=float)
-                    init[:len(initfile)]=initfile
-                else:
-                    raise Exception('wrong initial vector size')
+            init = get_init(init_type,self.ndof)
         init = comm.bcast(init)
 
         def fun_nlopt(dof,gradn):
             t1 = time.time()
-            val,gn = fun_mpi(dof,fun[0],fun[1],output=fun[2])
+            val0,gn = fun_mpi(dof,fun[0],fun[1],output=fun[2])
+            if inverse == 1:
+                val = 1./val0
+                gn = -gn*val**2
+            else:
+                val = val0
             gradn[:] = gn
             t2 = time.time()
 
             if 'autograd' not in str(type(val)) and rank == 0:
                 if self.timing == 1:
-                    print(self.ctrl,'val = ',val,'time=',t2-t1)
+                    print(self.ctrl,'val = ',val0,'time=',t2-t1)
                 else:
-                    print(self.ctrl,'val = ',val)
+                    print(self.ctrl,'val = ',val0)
                 if self.info[0] == 'obj':
                     R = self.info[2](dof,val)
                     print('   ',self.info[1],R)
@@ -134,7 +137,7 @@ class nlopt_opt:
             self.opt.add_inequality_constraint(fun_cons1, 1e-8)
             self.opt.add_inequality_constraint(fun_cons2, 1e-8)
 
-        if ismax == 1:
+        if (ismax == 1 and inverse == 0) or (ismax == 0 and inverse == 1):
             self.opt.set_max_objective(fun_nlopt)
         else:
             self.opt.set_min_objective(fun_nlopt)
@@ -223,3 +226,22 @@ def fun_ratio(dof,fun1,fun2,N1,N2,output1='sum',output2='sum'):
     val = val1/val2
     grad = (grad1*val2-grad2*val1)/val2**2
     return val,grad
+
+def get_init(init_type,ndof):
+    if init_type == 'rand':
+        init = np.random.random(ndof)
+    elif init_type == 'vac':
+        init = np.zeros(ndof)+1e-5*np.random.random(ndof)
+    elif init_type == 'one':
+        init = np.ones(ndof)
+    else:
+        tmp = open(init_type,'r')
+        initfile = np.loadtxt(tmp)
+
+        if len(initfile) == ndof:
+            init = initfile
+        elif len(initfile) < ndof:
+            init = np.zeros(ndof,dtype=float)
+            init[:len(initfile)]=initfile
+
+    return init

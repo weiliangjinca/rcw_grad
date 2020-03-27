@@ -174,7 +174,7 @@ class RCWA_obj:
         self.a0 = a0
         self.bN = bN
         
-    def GridLayer_getDOF(self,dof):
+    def GridLayer_getDOF(self,dof,Qbeta=np.inf):
         '''
         Fourier transform + eigenvalue for grid layer
         '''
@@ -202,7 +202,7 @@ class RCWA_obj:
             self.kp_list[self.id_list[i][1]] = kp
 
             q,phi = SolveLayerEigensystem(self.omega,self.kx,self.ky,kp,ep2)
-            self.q_list[self.id_list[i][1]] = q
+            self.q_list[self.id_list[i][1]] = q*(1+1j/Qbeta)
             self.phi_list[self.id_list[i][1]] = phi
 
             ptr += Nx*Ny
