@@ -4,6 +4,7 @@ from autograd import grad
 from scipy.special import logsumexp
 import nlopt, numpy as npf
 import time
+
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
@@ -13,8 +14,14 @@ class nlopt_opt:
         '''
         savefile_N: output dof as file every such number, with filename
         '''
-        lbn=lb*np.ones(ndof,dtype=float)
-        ubn=ub*np.ones(ndof,dtype=float)
+        if type(lb) == float or type(lb) == int:
+            lbn = lb*np.ones(ndof,dtype=float)
+        else:
+            lbn = lb
+        if type(ub) == float or type(ub) == int:
+            ubn = ub*np.ones(ndof,dtype=float)
+        else:
+            ubn = ub
 
         opt = nlopt.opt(nlopt.LD_MMA, ndof)
         opt.set_lower_bounds(lbn)
