@@ -37,6 +37,7 @@ parser.add_argument('-dx', action="store", type=float, default=1e-4)
 parser.add_argument('-ind', action="store", type=int, default=0)
 parser.add_argument('-nG', action="store", type=int, default=101)
 parser.add_argument('-Nlayer', action="store", type=int, default=1)
+parser.add_argument('-tmin', action="store", type=float, default=0)
 parser.add_argument('-thickness', action="store", type=float, default=1)
 parser.add_argument('-angle', action="store", type=float, default=0.)
 parser.add_argument('-bproj', action="store", type=float, default=0)
@@ -159,7 +160,7 @@ def accelerate_D(doftotal,ctrl):
     ''' ctrl: ctrl's frequency calculation
     '''
     if r.topt == 1:
-        pthick = [thick[i]*doftotal[i] for i in range(Nlayer)]
+        pthick = [r.tmin/lam0+(thick[i]-r.tmin/lam0)*doftotal[i] for i in range(Nlayer)]
         dofold = doftotal[Nlayer:]
     else:
         pthick = thick
@@ -196,7 +197,7 @@ def accelerate_D(doftotal,ctrl):
 
 def infoR(doftotal,val):
     if r.topt == 1:
-        pthick = [thick[i]*doftotal[i] for i in range(Nlayer)]
+        pthick = [r.tmin/lam0+(thick[i]-r.tmin/lam0)*doftotal[i] for i in range(Nlayer)]
         dofold = doftotal[Nlayer:]
     else:
         pthick = thick
@@ -233,7 +234,7 @@ savefile_N = 2
 ismax = 0 # 0 for minimization
 obj = [accelerate_D,Nf,'sum']
 
-filename = './DATA/acc'+'_topt'+str(r.topt)+'_inv'+str(r.inverse)+'_N'+str(Nlayer)+'_'+r.polarization+'_sym'+str(xsym)+str(ysym)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Pmicron'+str(Period*1e6)+'_mload'+str(r.mload)+'_Nf'+str(Nf)+'_Qf'+str(Qref)+'_angle'+str(r.angle)+'_nG'+str(nG)+'_bproj'+str(bproj)+'_mload'+str(mload*1e4)+'_mp'+str(r.mpower)+'_'
+filename = './DATA/acc'+'_topt'+str(r.topt)+'_inv'+str(r.inverse)+'_N'+str(Nlayer)+'_'+r.polarization+'_sym'+str(xsym)+str(ysym)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Pmicron'+str(Period*1e6)+'_mload'+str(r.mload)+'_Nf'+str(Nf)+'_Qf'+str(Qref)+'_angle'+str(r.angle)+'_nG'+str(nG)+'_bproj'+str(bproj)+'_mload'+str(mload*1e4)+'_mp'+str(r.mpower)+'_tmin'+str(r.tmin*1e9)+'_'
 for i in range(Nlayer):
     filename += materialL[i]+'_tnm'+str(thickness[i]*1e9)+'_'
 
