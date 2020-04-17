@@ -40,7 +40,6 @@ def Lattice_SetKs(G, kx0, ky0, Lk1, Lk2):
     2pi factor is now included in the returned kx,ky
     '''
 
-    nG,_ = G.shape
     kx = kx0 + 2*np.pi*(Lk1[0]*G[:,0]+Lk2[0]*G[:,1])
     ky = ky0 + 2*np.pi*(Lk1[1]*G[:,0]+Lk2[1]*G[:,1])
 
@@ -90,7 +89,7 @@ def Gsel_circular(nG, Lk1, Lk2):
     v = np.linalg.norm(Lk2)
     uv = np.dot(Lk1,Lk2)
     uxv = Lk1[0]*Lk2[1] - Lk1[1]*Lk2[0]
-    circ_area = nG * uxv
+    circ_area = nG * np.abs(uxv)
     circ_radius = np.sqrt(circ_area/np.pi) + u+v;
 
     u_extent = 1+int(circ_radius/(u*np.sqrt(1.-uv**2/(u*v)**2)))

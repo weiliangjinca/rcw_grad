@@ -6,7 +6,7 @@ os.environ["MKL_NUM_THREADS"] = str(Nthread) # export MKL_NUM_THREADS=1
 os.environ["VECLIB_MAXIMUM_THREADS"] = str(Nthread) # export VECLIB_MAXIMUM_THREADS=1
 os.environ["NUMEXPR_NUM_THREADS"] = str(Nthread) # export NUMEXPR_NUM_THREADS=1
 
-rpath = '/home/wljin/MyLocal/RCWA/'
+rpath = '/home/asgard/rcw_grad/'
 sys.path.append(rpath)
 sys.path.append(rpath+'examples/')
 sys.path.append(rpath+'materials/')
@@ -29,7 +29,9 @@ rank = comm.Get_rank()
 parser = argparse.ArgumentParser()
 # solvers
 parser.add_argument('-Job', action="store", type=int, default=1)
+parser.add_argument('-Nf', action="store", type=int, default=24)
 parser.add_argument('-topt', action="store", type=int, default=0)
+parser.add_argument('-Popt', action="store", type=int, default=0)
 parser.add_argument('-material', action="store", type=str, default='silicon')
 parser.add_argument('-inverse', action="store", type=int, default=0)
 parser.add_argument('-Mx', action="store", type=int, default=100)
@@ -45,6 +47,7 @@ parser.add_argument('-Qref', action="store", type=float, default=1e10)
 parser.add_argument('-mload', action="store", type=float, default=0.1)
 parser.add_argument('-mpower', action="store", type=float, default=1.0)
 parser.add_argument('-Period', action="store", type=float, default=1e-6)
+parser.add_argument('-Periodmax', action="store", type=float, default=2e-6)
 parser.add_argument('-init_type', action="store", type=str, default='vac')
 parser.add_argument('-polarization', action="store", type=str, default='s')
 
@@ -71,7 +74,7 @@ Mx = r.Mx
 My = r.Mx
 
 # pumping
-Nf=20
+Nf=r.Nf
 final_v = .2
 laserP = 1e10
 epsimag = 0.
@@ -136,7 +139,7 @@ thick0 = 1.
 thick = [ f/lam0 for f in thickness]
 thickN = 1.
 
-def rcwa_assembly(dofold,freq,theta,phi,planewave,pthick):
+def rcwa_assembly(dofold,freq,theta,phi,planewave,pthick,pscale):
     '''
     planewave:{'p_amp',...}
     '''
@@ -150,7 +153,7 @@ def rcwa_assembly(dofold,freq,theta,phi,planewave,pthick):
         epsdiff.append(mstruct[i].epsilon(lam0/np.real(freq),x_type = 'lambda')-epsbkg)
         obj.Add_LayerGrid(pthick[i],epsdiff[i],epsbkg,Nx,Ny)
     obj.Add_LayerUniform(thickN,epsuniform)
-    obj.Init_Setup(Gmethod=0)
+    obj.Init_Setup(Pscale=pscale,Gmethod=0)
     obj.MakeExcitationPlanewave(planewave['p_amp'],planewave['p_phase'],planewave['s_amp'],planewave['s_phase'],order = 0)
     obj.GridLayer_getDOF(dof)
     
@@ -159,10 +162,20 @@ def rcwa_assembly(dofold,freq,theta,phi,planewave,pthick):
 def accelerate_D(doftotal,ctrl):
     ''' ctrl: ctrl's frequency calculation
     '''
-    if r.topt == 1:
+    if r.topt == 1 and r.Popt == 0:
         pthick = [r.tmin/lam0+(thick[i]-r.tmin/lam0)*doftotal[i] for i in range(Nlayer)]
+        pscale = 1.
         dofold = doftotal[Nlayer:]
+    elif r.topt == 0 and r.Popt == 1:
+        pthick = thick
+        pscale = 1. + (r.Periodmax - r.Period)/r.Period*doftotal[0]
+        dofold = doftotal[1:]
+    elif r.topt == 1 and r.Popt == 1:
+        pscale = 1. + (r.Periodmax - r.Period)/r.Period*doftotal[0]
+        pthick = [r.tmin/lam0+(thick[i]-r.tmin/lam0)*doftotal[1+i] for i in range(Nlayer)]
+        dofold = doftotal[Nlayer+1:]                
     else:
+        pscale = 1.
         pthick = thick
         dofold = doftotal
 
@@ -171,7 +184,7 @@ def accelerate_D(doftotal,ctrl):
     planewave={'p_amp':0,'s_amp':1,'p_phase':0,'s_phase':0}
     phi = 0.
     theta = r.angle
-    obj,dof,epsdiff = rcwa_assembly(dofold,freqcmp,theta,phi,planewave,pthick)
+    obj,dof,epsdiff = rcwa_assembly(dofold,freqcmp,theta,phi,planewave,pthick,pscale)
     R,_ = obj.RT_Solve(normalize=1)
     
     if r.polarization == 'ps' or r.polarization == 'sp':
@@ -196,12 +209,22 @@ def accelerate_D(doftotal,ctrl):
     return integrand
 
 def infoR(doftotal,val):
-    if r.topt == 1:
+    if r.topt == 1 and r.Popt == 0:
         pthick = [r.tmin/lam0+(thick[i]-r.tmin/lam0)*doftotal[i] for i in range(Nlayer)]
+        pscale = 1.
         dofold = doftotal[Nlayer:]
-    else:
+    elif r.topt == 0 and r.Popt == 1:
         pthick = thick
-        dofold = doftotal
+        pscale = 1. + (r.Periodmax - r.Period)/r.Period*doftotal[0]
+        dofold = doftotal[1:]
+    elif r.topt == 1 and r.Popt == 1:
+        pscale = 1. + (r.Periodmax - r.Period)/r.Period*doftotal[0]
+        pthick = [r.tmin/lam0+(thick[i]-r.tmin/lam0)*doftotal[1+i] for i in range(Nlayer)]
+        dofold = doftotal[Nlayer+1:]                
+    else:
+        pscale = 1.
+        pthick = thick
+        dofold = doftotal    
 
     df = f_symmetry(dofold,Mx,My,xsym,ysym,Nlayer=Nlayer)
     dof = b_filter(df,bproj)
@@ -218,10 +241,12 @@ def infoR(doftotal,val):
     F = np.mean(gamma*beta/(1-beta)**2)
 
     R = 1./(1e9*val*2*laserP/cons.c**3/rho/F/beta[-1])
-    return (R,np.mean(dof),(rhor-mload)/mload,[pthick[i]*lam0*1e9 for i in range(Nlayer)])
+    return (R,np.mean(dof),(rhor-mload)/mload,1e6*pscale*r.Period,[pthick[i]*lam0*1e9 for i in range(Nlayer)])
 
 # # nlopt setup
 ndof = Mx*My*Nlayer
+if r.Popt == 1:
+    ndof = ndof + 1
 if r.topt == 1:
     ndof = ndof + Nlayer
 
@@ -234,11 +259,11 @@ savefile_N = 2
 ismax = 0 # 0 for minimization
 obj = [accelerate_D,Nf,'sum']
 
-filename = './DATA/acc'+'_topt'+str(r.topt)+'_inv'+str(r.inverse)+'_N'+str(Nlayer)+'_'+r.polarization+'_sym'+str(xsym)+str(ysym)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Pmicron'+str(Period*1e6)+'_mload'+str(r.mload)+'_Nf'+str(Nf)+'_Qf'+str(Qref)+'_angle'+str(r.angle)+'_nG'+str(nG)+'_bproj'+str(bproj)+'_mload'+str(mload*1e4)+'_mp'+str(r.mpower)+'_tmin'+str(r.tmin*1e9)+'_'
+filename = './DATA/acc'+'_topt'+str(r.topt)+'_Popt'+str(r.Popt)+'_inv'+str(r.inverse)+'_N'+str(Nlayer)+'_'+r.polarization+'_sym'+str(xsym)+str(ysym)+'_Nx'+str(Nx)+'_Ny'+str(Ny)+'_Pmicron'+str(Period*1e6)+'_mload'+str(r.mload)+'_Nf'+str(Nf)+'_Qf'+str(Qref)+'_angle'+str(r.angle)+'_nG'+str(nG)+'_bproj'+str(bproj)+'_mload'+str(mload*1e4)+'_mp'+str(r.mpower)+'_tmin'+str(r.tmin*1e9)+'_Pmax'+str(r.Periodmax*1e6)+'_'
 for i in range(Nlayer):
     filename += materialL[i]+'_tnm'+str(thickness[i]*1e9)+'_'
 
-nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['obj','  (R,V,Mratio,t) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj,Nlayer=Nlayer)
+nopt = nlopt_opt(ndof,lb,ub,maxeval,ftol,filename,savefile_N,Mx,My,info=['obj','  (R,V,Mratio,P,t) = ',infoR],xsym=xsym,ysym=ysym,bproj=bproj,Nlayer=Nlayer)
 
 if r.Job == 1:
     x = nopt.fun_opt(ismax,obj,init_type,inverse=r.inverse)

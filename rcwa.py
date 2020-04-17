@@ -112,7 +112,7 @@ class RCWA_obj:
         self.Patterned_N += 1
         self.FourierLayer_N += 1
 
-    def Init_Setup(self,Gmethod=0):
+    def Init_Setup(self,Pscale=1.,Gmethod=0):
         '''
         Set up reciprocal lattice (Gmethod:truncation scheme, 0 for circular, 1 for rectangular)
         Compute eigenvalues for uniform layers
@@ -124,6 +124,9 @@ class RCWA_obj:
         # set up reciprocal lattice
         self.Lk1, self.Lk2 = kbloch.Lattice_Reciprocate(self.L1,self.L2)
         self.G,self.nG = kbloch.Lattice_getG(self.nG,self.Lk1,self.Lk2,method=Gmethod)
+        
+        self.Lk1 = self.Lk1/Pscale
+        self.Lk2 = self.Lk2/Pscale
         self.kx,self.ky = kbloch.Lattice_SetKs(self.G, kx0, ky0, self.Lk1, self.Lk2)
         
         #normalization factor for energies off normal incidence
