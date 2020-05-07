@@ -246,8 +246,8 @@ def get_init(init_type,ndof):
         initfile = np.loadtxt(tmp)
 
         if len(initfile) == ndof:
-            init = initfile+np.random.random(ndof)*1e-2
-            init = init - np.random.random(ndof)*1e-2
+            init = initfile+np.random.random(ndof)*1e-3
+            init = init - np.random.random(ndof)*1e-3
             init[init>1.]=1.
             init[init<0.]=0.
         elif len(initfile) < ndof:
