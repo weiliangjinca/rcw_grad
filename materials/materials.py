@@ -20,6 +20,40 @@ class SiN:
             ep = np.real(ep) + 1j * self.epsimag
         return ep
 
+class fakeSiN:
+    def __init__(self,epsimag = 0.):
+        '''
+        0.31-5.5 micron, Luke 2015
+        '''
+
+        self.density = 2.329e3
+        self.epsimag = epsimag
+
+    def epsilon(self,x,x_type='lambda'):
+        xlam = converter2lam(x,x_type)*1e6
+        n = (1+3.0249/(1-(0.1353406/xlam)**2)+40314/(1-(1239.842/xlam)**2))**.5
+        ep = n**2
+        if np.imag(ep)<self.epsimag:
+            ep = np.real(ep) + 1j * self.epsimag
+        return ep
+
+class ffakeSiN:
+    def __init__(self,epsimag = 0.):
+        '''
+        0.31-5.5 micron, Luke 2015
+        '''
+
+        self.density = 2.329e3/np.sqrt(3.)
+        self.epsimag = epsimag
+
+    def epsilon(self,x,x_type='lambda'):
+        xlam = converter2lam(x,x_type)*1e6
+        n = (1+3.0249/(1-(0.1353406/xlam)**2)+40314/(1-(1239.842/xlam)**2))**.5
+        ep = n**2
+        if np.imag(ep)<self.epsimag:
+            ep = np.real(ep) + 1j * self.epsimag
+        return ep
+
 class silica:
     def __init__(self,filename='silica_data',epsimag = 0.):
         '''

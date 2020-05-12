@@ -1,4 +1,4 @@
-A more formal implementation that can be installed with pip:
+** A more formal implementation that can be installed with pip:
 https://github.com/weiliangjinca/grcwa
 
 
@@ -10,3 +10,11 @@ Required package:
 -- mpi4py for parallel
 -- autograd for gradient
 -- nlopt for optimization
+
+If you find it useful for your research, please cite the following paper:
+   @article{Jin2020,
+     title = {Inverse design of lightweight broadband  reflector for efficient lightsail propulsion},
+     author ={Jin, Weiliang and Li, Wei and Orenstein, Meir and Fan, Shanhui},
+     year = {2020},
+     journal = {arXiv:2005.04840},
+   }
